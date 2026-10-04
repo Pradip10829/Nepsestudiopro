@@ -1,0 +1,13 @@
+# Dependencies (never upload node_modules to Git)
+node_modules/
+
+# Private WhatsApp Bot Session Keys (keep secret!)
+auth_info_baileys/
+
+# Personal MeroShare Portfolio & Local Runtime Cache (keep private!)
+data/*.json
+
+# macOS & Environment Files
+.DS_Store
+.env
+*.log
