@@ -543,18 +543,33 @@ class NepseProvider {
       const lastIdx = cloned.length - 1;
       const lastBar = cloned[lastIdx];
       if (ltp > 0) {
-        const safeOpen = prevClose > 0 ? prevClose : lastBar.open || ltp;
-        const safeHigh = round2(Math.max(high || ltp, low || ltp, ltp, safeOpen));
-        const safeLow = round2(Math.min(low || ltp, high || ltp, ltp, safeOpen));
-        cloned[lastIdx] = {
-          ...lastBar,
-          open: safeOpen,
-          high: safeHigh,
-          low: safeLow,
-          close: ltp,
-          volume: volume > 0 ? volume : lastBar.volume,
-          turnover: round2(ltp * (volume > 0 ? volume : lastBar.volume))
-        };
+        const { isOpen, nptDateStr } = this.isMarketOpenNow();
+        // If the market is closed or the last real bar is already from the latest trading session with the same close, preserve exact real OHLCV
+        if (isOpen && lastBar.date !== nptDateStr && Math.abs(lastBar.close - ltp) > 0.01) {
+          const safeOpen = prevClose > 0 ? prevClose : lastBar.close || ltp;
+          const safeHigh = round2(Math.max(high || ltp, low || ltp, ltp, safeOpen));
+          const safeLow = round2(Math.min(low || ltp, high || ltp, ltp, safeOpen));
+          cloned.push({
+            date: nptDateStr,
+            open: safeOpen,
+            high: safeHigh,
+            low: safeLow,
+            close: ltp,
+            volume: volume > 0 ? volume : lastBar.volume,
+            turnover: round2(ltp * (volume > 0 ? volume : lastBar.volume)),
+            source: "LIVE_INTRADAY_BAR"
+          });
+        } else if (Math.abs(lastBar.close - ltp) > 0.01) {
+          // Align only the final close/high/low without corrupting open or prior bars
+          cloned[lastIdx] = {
+            ...lastBar,
+            high: round2(Math.max(lastBar.high || ltp, high || ltp, ltp)),
+            low: round2(Math.min(lastBar.low || ltp, low || ltp, ltp)),
+            close: ltp,
+            volume: volume > 0 ? volume : lastBar.volume,
+            turnover: round2(ltp * (volume > 0 ? volume : lastBar.volume))
+          };
+        }
       }
       this.history.set(sym, cloned);
       return;
@@ -840,7 +855,10 @@ class NepseProvider {
 
   async refreshLiveQuotes(force = false) {
     const now = Date.now();
-    if (!force && now - this.lastScrapedAt < 60000) {
+    const { isOpen } = this.isMarketOpenNow();
+    // When NEPSE market is closed (e.g., Friday/Saturday/After 3 PM) and we already have 100+ real EOD quotes loaded, only re-scrape every 15 minutes unless forced
+    const minIntervalMs = !isOpen && this.quotes.size > 100 ? 900000 : 60000;
+    if (!force && this.lastScrapedAt > 0 && now - this.lastScrapedAt < minIntervalMs) {
       return;
     }
     this.lastScrapedAt = now;

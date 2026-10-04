@@ -101,7 +101,11 @@ class WhatsAppBotManager {
         logger: pino ? pino({ level: "silent" }) : undefined,
         printQRInTerminal: false,
         browser: ["NEPSE Quant Pro", "Chrome", "4.0.0"],
-        connectTimeoutMs: 20000
+        connectTimeoutMs: 30000,
+        keepAliveIntervalMs: 25000,
+        retryRequestDelayMs: 2000,
+        markOnlineOnConnect: false,
+        syncFullHistory: false
       });
 
       this.sock.ev.on("creds.update", saveCreds);
@@ -129,18 +133,19 @@ class WhatsAppBotManager {
             statusCode === 403 ||
             errMsg.toLowerCase().includes("logged out");
 
+          const hasPairedCreds = Boolean(state?.creds?.registered);
+
           this.status = "DISCONNECTED";
           this.qrDataUrl = null;
           this.connectedUser = null;
 
           if (isLoggedOut) {
-            console.log("🔄 Session logged out or expired. Clearing auth_info_baileys and generating fresh QR...");
             try {
               fs.rmSync(this.authDir, { recursive: true, force: true });
             } catch (_) {}
-            setTimeout(() => this.startWhatsApp(), 1500);
-          } else {
-            setTimeout(() => this.startWhatsApp(), 4000);
+          } else if (hasPairedCreds) {
+            // Only auto-reconnect in the background if the user had already paired a WhatsApp session
+            setTimeout(() => this.startWhatsApp(), 8000);
           }
         } else if (connection === "open") {
           this.status = "CONNECTED";

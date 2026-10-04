@@ -3296,13 +3296,17 @@
           selectedSymbol = allSignals[0].symbol;
         }
         if (selectedSymbol) {
-          selectStock(selectedSymbol, false);
+          const activeEl = document.activeElement;
+          const isTypingInCalc = activeEl && (activeEl.id === 'calcBuyPrice' || activeEl.id === 'calcSellPrice' || activeEl.id === 'calcKitta' || activeEl.id === 'calcHoldPeriod');
+          if (!isTypingInCalc) {
+            selectStock(selectedSymbol, false, !isManual && activeChartBars.length > 0 && activeChartSignal?.symbol === selectedSymbol);
+          }
         }
 
         renderNewsList(data.news || [], data.newsUpdatedAt, data.newsLiveCount);
         checkWhatsAppStatus();
         if (typeof loadMeroPortfolioStatus === 'function') {
-          loadMeroPortfolioStatus();
+          loadMeroPortfolioStatus(isManual);
         }
       } catch (err) {
         console.error('Dashboard load error:', err);
@@ -4596,6 +4600,7 @@
       if (buyPrice <= 0 || kitta <= 0) return;
 
       function brokerRate(amt) {
+        if (buyPrice <= 15 && sellPrice <= 25) return 0.0015;
         if (amt <= 50000) return 0.0036;
         if (amt <= 500000) return 0.0033;
         if (amt <= 2000000) return 0.0031;
@@ -4604,9 +4609,13 @@
       }
 
       const buyGross = buyPrice * kitta;
-      const buyComm = Math.max(10, buyGross * brokerRate(buyGross));
-      const buySebon = buyGross * 0.00015;
-      const buyDp = 25;
+      const savedPos = getSavedPositions()[selectedSymbol] || meroPortfolioState?.holdings?.[selectedSymbol];
+      const isSavedWacc = Boolean(savedPos && Math.abs(Number(savedPos.wacc) - buyPrice) < 0.05);
+
+      // If this is an already-calculated CDSC WACC rate, buy-side fees are already inside the WACC rate!
+      const buyComm = isSavedWacc ? 0 : Math.max(10, buyGross * brokerRate(buyGross));
+      const buySebon = isSavedWacc ? 0 : buyGross * 0.00015;
+      const buyDp = isSavedWacc ? 0 : 25;
       const totalBuyCost = buyGross + buyComm + buySebon + buyDp;
 
       const breakevenPerShare = (totalBuyCost + 25) / (kitta * (1 - 0.0036 - 0.00015));
@@ -5320,15 +5329,30 @@
         const res = await fetch('/api/whatsapp/status');
         const data = await res.json();
         const btn = document.getElementById('waStatusBtn');
-        if (data.status === 'READY') {
-          btn.textContent = 'WhatsApp Ready';
-          btn.className = 'btn btn-soft-green';
+        if (!btn) return;
+        if (data.status === 'CONNECTED' || data.status === 'READY') {
+          btn.textContent = '✔ WhatsApp Connected';
+          btn.className = 'btn btn-green';
         } else if (data.status === 'QR_READY') {
-          btn.textContent = 'Link WhatsApp QR';
+          btn.textContent = '📱 Scan WhatsApp QR';
           btn.className = 'btn btn-soft-green';
         } else {
-          btn.textContent = `WhatsApp: ${data.status || 'Offline'}`;
+          btn.textContent = '📱 Link WhatsApp Bot';
+          btn.className = 'btn btn-soft-green';
         }
+      } catch (_) {}
+    }
+
+    async function triggerFreshWhatsAppQr() {
+      const box = document.getElementById('qrModalContent');
+      if (box) box.innerHTML = '⏳ Generating fresh WhatsApp QR code...';
+      try {
+        await fetch('/api/whatsapp/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reset: true })
+        });
+        setTimeout(() => openQrModal(), 2200);
       } catch (_) {}
     }
 
@@ -5339,14 +5363,17 @@
       try {
         const res = await fetch('/api/whatsapp/status');
         const data = await res.json();
-        if (data.status === 'READY') {
-          box.innerHTML = `<div class="badge badge-green" style="font-size:14px; padding:8px 14px;">✔ WhatsApp Bot is Connected & Active</div>
-            <p style="margin-top:10px; color:var(--text-secondary); font-size:13px;">You can send commands like <code>!immediate</code>, <code>!immediatesell</code>, <code>!longterm</code>, or any stock symbol directly in WhatsApp.</p>`;
+        if (data.status === 'CONNECTED' || data.status === 'READY') {
+          box.innerHTML = `<div class="badge badge-green" style="font-size:14px; padding:8px 14px;">✔ WhatsApp Bot is Connected &amp; Active</div>
+            <p style="margin-top:10px; color:var(--text-secondary); font-size:13px;">You can send commands like <code>!immediate</code>, <code>!immediatesell</code>, <code>!longterm</code>, or any stock symbol directly in WhatsApp.</p>
+            <button type="button" class="btn btn-soft-red" style="margin-top:10px;" onclick="triggerFreshWhatsAppQr()">🔄 Disconnect &amp; Pair New Device</button>`;
         } else if (data.qrDataUrl) {
           box.innerHTML = `<img src="${data.qrDataUrl}" alt="WhatsApp QR" style="width:240px; height:240px; border:1px solid var(--border); border-radius:8px; background:#fff; padding:8px;" />
-            <p style="margin-top:10px; color:var(--text-secondary); font-size:13px;">Open WhatsApp on your phone → Linked Devices → Scan this QR code.</p>`;
+            <p style="margin-top:10px; color:var(--text-secondary); font-size:13px;">Open WhatsApp on your phone → Linked Devices → Scan this QR code.</p>
+            <button type="button" class="btn" style="margin-top:8px;" onclick="triggerFreshWhatsAppQr()">🔄 Refresh QR Code</button>`;
         } else {
-          box.innerHTML = `<p style="color:var(--text-secondary);">Status: <strong>${data.status}</strong>. ${data.lastError || 'Start with WhatsApp enabled to generate QR.'}</p>`;
+          box.innerHTML = `<p style="color:var(--text-secondary); margin-bottom:12px;">WhatsApp Bot is currently in <strong>Standby Mode</strong> (Web Simulator on Page 4 works 100% without pairing).</p>
+            <button type="button" class="btn btn-green" onclick="triggerFreshWhatsAppQr()">📱 Generate WhatsApp QR Code to Pair Phone</button>`;
         }
       } catch (e) {
         box.innerHTML = `<p class="text-red">Could not reach WhatsApp status endpoint.</p>`;
@@ -5380,23 +5407,28 @@
       const k = Math.max(0, Number(kitta || 0));
       const w = Math.max(0, Number(wacc || 0));
       const s = Math.max(0, Number(sellPrice || 0));
+      // Note: CDSC MeroShare WACC already includes buy-side broker + SEBON + DP fees in averageBuyRate!
       const totalCost = k * w;
       const grossSell = k * s;
       if (k <= 0 || s <= 0) {
-        return { totalCost, grossSell, netReceive: 0, netProfit: 0, netProfitPct: 0 };
+        return { totalCost, grossSell, netReceive: 0, netProfit: 0, netProfitPct: 0, sellFees: 0, cgtTax: 0 };
       }
-      // Official Nepal SEBON + Broker slab + DP Rs 25 + CGT (5% >1Yr / 7.5% <1Yr)
-      const brokerRate = grossSell <= 50000 ? 0.0036 : grossSell <= 500000 ? 0.0033 : grossSell <= 2000000 ? 0.0031 : 0.0027;
+      // Official Nepal SEBON + Broker slab (2024/2026 revised) + DP Rs 25 + CGT (5% >365d LT / 7.5% <365d ST)
+      const isMutualFund = w <= 15 && s <= 25;
+      const brokerRate = isMutualFund
+        ? 0.0015
+        : (grossSell <= 50000 ? 0.0036 : grossSell <= 500000 ? 0.0033 : grossSell <= 2000000 ? 0.0031 : grossSell <= 10000000 ? 0.0027 : 0.0024);
       const brokerFee = Math.max(10, grossSell * brokerRate);
       const sebonFee = grossSell * 0.00015;
       const dpFee = 25;
-      const grossGain = grossSell - totalCost - brokerFee - sebonFee - dpFee;
+      const sellFees = brokerFee + sebonFee + dpFee;
+      const grossGain = grossSell - totalCost - sellFees;
       const cgtRate = holdPeriod === 'short' ? 0.075 : 0.05;
       const cgtTax = grossGain > 0 ? grossGain * cgtRate : 0;
-      const netReceive = grossSell - brokerFee - sebonFee - dpFee - cgtTax;
+      const netReceive = grossSell - sellFees - cgtTax;
       const netProfit = netReceive - totalCost;
       const netProfitPct = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
-      return { totalCost, grossSell, netReceive, netProfit, netProfitPct };
+      return { totalCost, grossSell, netReceive, netProfit, netProfitPct, sellFees, cgtTax };
     }
 
     function syncMeroHoldingsToLocalWacc(holdingsObj, replaceAllLocal = true) {
@@ -5408,7 +5440,7 @@
             nextMap[sym] = {
               symbol: sym,
               kitta: Math.round(Number(item.kitta)),
-              wacc: Number(Number(item.wacc).toFixed(2)),
+              wacc: Number(Number(item.wacc).toFixed(4)),
               holdPeriod: item.holdPeriod || 'long',
               updatedAt: item.updatedAt || new Date().toISOString()
             };
@@ -5420,19 +5452,41 @@
       renderLiveAlertBanner();
     }
 
-    async function loadMeroPortfolioStatus() {
-      loadCdscCapitalsDropdown();
+    let meroInitialLoaded = false;
+
+    async function loadMeroPortfolioStatus(forceRender = false) {
+      if (!cdscCapitalsLoaded) {
+        loadCdscCapitalsDropdown();
+      }
       try {
         const res = await fetch('/api/meroshare/status');
         const data = await res.json();
         if (data.ok && data.portfolio) {
+          const prevSyncAt = meroPortfolioState?.linkedAccount?.lastSyncedAt || null;
+          const nextSyncAt = data.portfolio?.linkedAccount?.lastSyncedAt || null;
+          const prevCount = Object.keys(meroPortfolioState?.holdings || {}).length;
+          const nextCount = Object.keys(data.portfolio?.holdings || {}).length;
+
           meroPortfolioState = data.portfolio;
-          // Mirror exact server holdings into localStorage (wiping out any old fake demo stocks)
+          // Mirror exact server holdings into localStorage (with full 4-decimal CDSC WACC precision)
           syncMeroHoldingsToLocalWacc(meroPortfolioState.holdings || {}, true);
-          renderMeroPortfolioPage();
+
+          // Only re-render the Page 5 DOM if something actually changed or on initial/manual load,
+          // and NEVER overwrite while the user is actively typing in a Page 5 input/select
+          const activeEl = document.activeElement;
+          const isEditingMero = activeEl && document.getElementById('merosharePageSection')?.contains(activeEl) &&
+            (activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT' || activeEl.tagName === 'TEXTAREA');
+
+          if (!isEditingMero && (forceRender || !meroInitialLoaded || prevSyncAt !== nextSyncAt || prevCount !== nextCount)) {
+            meroInitialLoaded = true;
+            renderMeroPortfolioPage();
+          }
         }
       } catch (_) {
-        renderMeroPortfolioPage();
+        if (!meroInitialLoaded) {
+          meroInitialLoaded = true;
+          renderMeroPortfolioPage();
+        }
       }
     }
 
@@ -5447,11 +5501,13 @@
         if (data.ok && Array.isArray(data.capitals) && data.capitals.length > 0) {
           const sel = document.getElementById('meroDpSelect');
           if (sel) {
+            const currentSelectedVal = sel.value || '';
+            const currentCodeMatch = currentSelectedVal.split('|')[0]?.slice(-5);
             const has16300 = data.capitals.some(c => String(c.code) === '16300');
             const fullList = has16300
               ? data.capitals
               : [{ id: 168, code: '16300', name: 'KUMARI BANK LIMITED / KUMARI CAPITAL' }, ...data.capitals];
-            const preferredCode = String(meroPortfolioState?.linkedAccount?.dpCode || '16300');
+            const preferredCode = String(meroPortfolioState?.linkedAccount?.dpCode || currentCodeMatch || '16300');
             sel.innerHTML = fullList.map(c => {
               const code5 = String(c.code || '16300');
               const dp8 = code5.startsWith('130') ? code5 : `130${code5}`;
@@ -5596,7 +5652,7 @@
 
     async function refreshLiveCdscPullNow() {
       try {
-        showMeroFeedback('🔄 Pulling latest Demat holdings from official CDSC MeroShare session...');
+        showMeroFeedback('🔄 Syncing Demat holdings & WACC from CDSC MeroShare...');
         const res = await fetch('/api/meroshare/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -5608,9 +5664,9 @@
         syncMeroHoldingsToLocalWacc(meroPortfolioState.holdings, true);
         renderMeroPortfolioPage();
         if (data.livePulledCount > 0) {
-          showMeroFeedback(`✔ ${data.message}`);
+          showMeroFeedback(`${data.message}`);
         } else {
-          showMeroFeedback('ℹ Session expired or not logged in yet. Enter your MeroShare Username & Password in Card 1 to pull live Demat holdings from CDSC.', false);
+          showMeroFeedback('ℹ Enter your MeroShare Username & Password in Card 1 to pull live Demat holdings from CDSC.', false);
           focusMeroDirectLogin();
         }
       } catch (err) {
@@ -5926,7 +5982,7 @@
       syms.forEach(sym => {
         const h = holdings[sym];
         const sig = allSignals.find(s => s.symbol === sym);
-        const ltp = sig ? Number(sig.ltp || h.cdscLtp || h.wacc) : Number(h.cdscLtp || h.wacc);
+        const ltp = Number(h.cdscLtp > 0 ? h.cdscLtp : (sig?.ltp || h.wacc || 100));
         const calc = calcNepseNetExitValue(h.kitta, h.wacc, ltp, h.holdPeriod || 'long');
         const ex = sig?.exactExecution || {};
         const verdict = sig?.isImmediateSell ? 'SELL NOW' : sig?.isImmediateBuy ? 'BUY / ADD MORE' : 'SAFE TO HOLD';
@@ -6053,8 +6109,9 @@
       const rowsHtml = syms.map((sym, idx) => {
         const h = holdings[sym];
         const sig = allSignals.find(s => s.symbol === sym);
-        const ltp = sig ? Number(sig.ltp || h.cdscLtp || h.wacc) : Number(h.cdscLtp || h.wacc);
-        const prevClose = Number(h.cdscPrevClose || sig?.prevClose || ltp);
+        // Use CDSC MeroShare's official lastTransactionPrice when pulled from CDSC so Total Market Value matches CDSC 100% to the paisa
+        const ltp = Number(h.cdscLtp > 0 ? h.cdscLtp : (sig?.ltp || h.wacc || 100));
+        const prevClose = Number(h.cdscPrevClose > 0 ? h.cdscPrevClose : (sig?.prevClose || ltp));
         const calc = calcNepseNetExitValue(h.kitta, h.wacc, ltp, h.holdPeriod || 'long');
 
         totalInvested += calc.totalCost;
