@@ -50,11 +50,14 @@ class RealDataEngine {
 
   loadDiskCache() {
     try {
+      let raw = null;
       if (fs.existsSync(REAL_CACHE_FILE)) {
-        const raw = JSON.parse(fs.readFileSync(REAL_CACHE_FILE, "utf8"));
-        if (raw && raw.stocks && typeof raw.stocks === "object") {
-          this.cache = raw;
-        }
+        raw = JSON.parse(fs.readFileSync(REAL_CACHE_FILE, "utf8"));
+      } else {
+        raw = require("../data/real_market_cache.json");
+      }
+      if (raw && raw.stocks && typeof raw.stocks === "object") {
+        this.cache = raw;
       }
     } catch (_) {}
   }

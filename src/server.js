@@ -101,8 +101,13 @@ function loadMeroPortfolio() {
     const candidateFile = fs.existsSync(TMP_MEROSHARE_MERO_FILE)
       ? TMP_MEROSHARE_MERO_FILE
       : MEROSHARE_MERO_FILE;
+    let raw = null;
     if (fs.existsSync(candidateFile)) {
-      const raw = JSON.parse(fs.readFileSync(candidateFile, "utf8"));
+      raw = JSON.parse(fs.readFileSync(candidateFile, "utf8"));
+    } else {
+      raw = require("../data/meroshare_mero_portfolio.json");
+    }
+    if (raw) {
       const rawHoldings = raw.holdings && typeof raw.holdings === "object" ? raw.holdings : {};
       const cleanedHoldings = {};
       let removedFake = false;
@@ -231,6 +236,9 @@ const requestHandler = async (req, res) => {
   if (parsedUrl.query && parsedUrl.query.__path) {
     const rawPath = String(parsedUrl.query.__path).replace(/^\/+/, "");
     pathname = "/api/" + rawPath;
+  } else if (req.query && req.query.path && (pathname === "/api" || pathname === "/api/index" || pathname.includes("path"))) {
+    const p = Array.isArray(req.query.path) ? req.query.path.join("/") : String(req.query.path);
+    pathname = "/api/" + p.replace(/^\/+/, "");
   } else if (
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/chart") ||

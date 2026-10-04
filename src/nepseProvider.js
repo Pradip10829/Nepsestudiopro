@@ -364,8 +364,12 @@ class NepseProvider {
   applyMeroSharePortfolioLocks() {
     try {
       const meroFile = path.join(DATA_DIR, "meroshare_mero_portfolio.json");
-      if (!fs.existsSync(meroFile)) return;
-      const meroPortfolio = JSON.parse(fs.readFileSync(meroFile, "utf8"));
+      let meroPortfolio = null;
+      if (fs.existsSync(meroFile)) {
+        meroPortfolio = JSON.parse(fs.readFileSync(meroFile, "utf8"));
+      } else {
+        meroPortfolio = require("../data/meroshare_mero_portfolio.json");
+      }
       const meroHoldings = meroPortfolio?.holdings || {};
       const { isOpen } = this.isMarketOpenNow();
 
@@ -855,34 +859,37 @@ class NepseProvider {
 
   loadLiveDiskCache() {
     try {
+      let raw = null;
       if (fs.existsSync(LIVE_CACHE_FILE)) {
-        const raw = JSON.parse(fs.readFileSync(LIVE_CACHE_FILE, "utf8"));
-        if (raw && raw.marketIndex && raw.marketIndex.nepseIndex >= 1800 && raw.marketIndex.turnover > 0) {
-          this.marketIndex = { ...this.marketIndex, ...raw.marketIndex };
+        raw = JSON.parse(fs.readFileSync(LIVE_CACHE_FILE, "utf8"));
+      } else {
+        raw = require("../data/live_quotes_cache.json");
+      }
+      if (raw && raw.marketIndex && raw.marketIndex.nepseIndex >= 1800 && raw.marketIndex.turnover > 0) {
+        this.marketIndex = { ...this.marketIndex, ...raw.marketIndex };
+      }
+      if (raw && Array.isArray(raw.quotes) && raw.quotes.length > 5) {
+        for (const cached of raw.quotes) {
+          if (!cached || cached.symbol === "NEPSE") continue;
+          const existing = this.quotes.get(cached.symbol) || {};
+          const sanitized = this.sanitizeAndEnrichQuote({ ...existing, ...cached });
+          if (!sanitized) {
+            this.quotes.delete(cached.symbol);
+            continue;
+          }
+          this.quotes.set(sanitized.symbol, sanitized);
+          this.reanchorHistoryToLiveQuote(
+            sanitized.symbol,
+            sanitized.ltp,
+            sanitized.prevClose,
+            sanitized.high,
+            sanitized.low,
+            sanitized.volume
+          );
         }
-        if (raw && Array.isArray(raw.quotes) && raw.quotes.length > 5) {
-          for (const cached of raw.quotes) {
-            if (!cached || cached.symbol === "NEPSE") continue;
-            const existing = this.quotes.get(cached.symbol) || {};
-            const sanitized = this.sanitizeAndEnrichQuote({ ...existing, ...cached });
-            if (!sanitized) {
-              this.quotes.delete(cached.symbol);
-              continue;
-            }
-            this.quotes.set(sanitized.symbol, sanitized);
-            this.reanchorHistoryToLiveQuote(
-              sanitized.symbol,
-              sanitized.ltp,
-              sanitized.prevClose,
-              sanitized.high,
-              sanitized.low,
-              sanitized.volume
-            );
-          }
-          this.dataSource = raw.dataSource || "LIVE_CACHED_EOD";
-          if (this.quotes.size > 100) {
-            this.lastScrapedAt = Date.now();
-          }
+        this.dataSource = raw.dataSource || "LIVE_CACHED_EOD";
+        if (this.quotes.size > 100) {
+          this.lastScrapedAt = Date.now();
         }
       }
     } catch (_) {}

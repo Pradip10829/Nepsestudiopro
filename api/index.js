@@ -1,17 +1,13 @@
-const path = require("path");
-const fs = require("fs");
 const requestHandler = require("../src/server");
+const liveQuotesCache = require("../data/live_quotes_cache.json");
+const realMarketCache = require("../data/real_market_cache.json");
+const liveNewsCache = require("../data/live_news_cache.json");
+const meroPortfolioCache = require("../data/meroshare_mero_portfolio.json");
 
-// Ensure @vercel/nft traces and bundles data/ and public/ files into the serverless function
-const BUNDLED_PATHS = [
-  path.join(__dirname, "..", "public", "index.html"),
-  path.join(__dirname, "..", "data", "live_quotes_cache.json"),
-  path.join(__dirname, "..", "data", "real_market_cache.json"),
-  path.join(__dirname, "..", "data", "live_news_cache.json"),
-  path.join(__dirname, "..", "data", "meroshare_mero_portfolio.json")
-];
-void BUNDLED_PATHS.length;
-void fs;
+void liveQuotesCache;
+void realMarketCache;
+void liveNewsCache;
+void meroPortfolioCache;
 
 module.exports = async (req, res) => {
   return requestHandler(req, res);
