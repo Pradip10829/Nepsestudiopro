@@ -72,11 +72,12 @@ class RealDataEngine {
     return this.cache.stocks[sym] || null;
   }
 
-  isFresh(symbol, maxAgeMs = 4 * 3600 * 1000) {
+  isFresh(symbol, maxAgeMs = 7 * 24 * 3600 * 1000) {
     const entry = this.getCached(symbol);
     if (!entry || !entry.updatedAt) return false;
     const age = Date.now() - new Date(entry.updatedAt).getTime();
-    return age < maxAgeMs && Array.isArray(entry.bars) && entry.bars.length >= 30 && Boolean(entry.fundamentals);
+    const hasData = (Array.isArray(entry.bars) && entry.bars.length > 0) || Boolean(entry.fundamentals);
+    return age < maxAgeMs && hasData;
   }
 
   /**

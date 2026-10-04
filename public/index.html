@@ -3227,13 +3227,14 @@
         if (isManual) {
           document.getElementById('dataSourceStatus').textContent = 'Refreshing live NEPSE & Merolagani feed...';
         }
-        const res = await fetch('/api/dashboard');
+        const res = await fetch(isManual ? '/api/dashboard?refresh=1' : '/api/dashboard');
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || 'Failed to load dashboard');
 
         allSignals = data.signals || [];
 
         const m = data.market || {};
+        window.lastMarketIsOpen = Boolean(m.isOpen);
         const idxVal = Number(m.nepseIndex ?? m.index ?? 2587.25);
         const idxChg = Number(m.pointChange ?? m.change ?? -11.90);
         const idxPct = Number(m.percentageChange ?? m.pctChange ?? -0.45);
@@ -4679,17 +4680,8 @@
         const res = await fetch(`/api/chart/${encodeURIComponent(symbol)}`);
         const data = await res.json();
         if (!data.ok || !Array.isArray(data.bars)) return;
-        const freshSig = data.signal || data.analysis;
-        if (freshSig && freshSig.symbol === symbol) {
-          const idx = allSignals.findIndex(x => x.symbol === symbol);
-          if (idx !== -1) {
-            allSignals[idx] = freshSig;
-            if (selectedSymbol === symbol) {
-              selectStock(symbol, false, true);
-              renderScreenerTable();
-            }
-          }
-        }
+        const existingSig = allSignals.find(x => x.symbol === symbol);
+        const freshSig = existingSig || data.signal || data.analysis;
         drawWhiteChart(data.bars, freshSig);
       } catch (e) {
         console.error('Chart error:', e);
@@ -6409,7 +6401,11 @@
     }
 
     loadDashboard(false);
-    setInterval(() => loadDashboard(false), 60000);
+    setInterval(() => {
+      if (window.lastMarketIsOpen) {
+        loadDashboard(false);
+      }
+    }, 60000);
   </script>
 </body>
 </html>

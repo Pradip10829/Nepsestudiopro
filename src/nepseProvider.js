@@ -296,7 +296,7 @@ function generateHistoricalBars(symbol, basePrice, bias = "neutral", days = 220)
   }
 
   const bars = [];
-  const now = new Date();
+  const now = new Date("2026-10-02T15:00:00+05:45");
   for (let idx = 0; idx < closes.length; idx++) {
     const d = new Date(now);
     d.setDate(d.getDate() - (closes.length - 1 - idx));
@@ -355,9 +355,87 @@ class NepseProvider {
     this.initSeedData();
     this.loadLiveDiskCache();
     this.applyAllCachedRealData();
+    this.applyMeroSharePortfolioLocks();
     this.syncNepseIndexQuote();
     this.saveLiveDiskCache();
     this.startBackgroundRealDataSync();
+  }
+
+  applyMeroSharePortfolioLocks() {
+    try {
+      const meroFile = path.join(DATA_DIR, "meroshare_mero_portfolio.json");
+      if (!fs.existsSync(meroFile)) return;
+      const meroPortfolio = JSON.parse(fs.readFileSync(meroFile, "utf8"));
+      const meroHoldings = meroPortfolio?.holdings || {};
+      const { isOpen } = this.isMarketOpenNow();
+
+      for (const [mSym, h] of Object.entries(meroHoldings)) {
+        if (!h || Number(h.kitta) <= 0) continue;
+        const cdscLtp = Number(h.cdscLtp || 0);
+        const cdscPrev = Number(h.cdscPrevClose || cdscLtp);
+        if (this.quotes.has(mSym) && cdscLtp > 0) {
+          const existingQ = this.quotes.get(mSym);
+          if (!isOpen || existingQ.source === "NEPSE_VERIFIED_FEED") {
+            existingQ.ltp = cdscLtp;
+            if (cdscPrev > 0) existingQ.prevClose = cdscPrev;
+            existingQ.pointChange = round2(existingQ.ltp - existingQ.prevClose);
+            existingQ.percentageChange = existingQ.prevClose > 0
+              ? round2(((existingQ.ltp - existingQ.prevClose) / existingQ.prevClose) * 100)
+              : 0;
+            existingQ.high = Math.max(existingQ.high || cdscLtp, cdscLtp);
+            existingQ.low = Math.min(existingQ.low || cdscLtp, cdscLtp);
+            this.quotes.set(mSym, existingQ);
+            this.reanchorHistoryToLiveQuote(
+              mSym,
+              existingQ.ltp,
+              existingQ.prevClose,
+              existingQ.high,
+              existingQ.low,
+              existingQ.volume
+            );
+          }
+        } else if (!this.quotes.has(mSym)) {
+          const ltp = Number(h.cdscLtp || h.wacc || 100);
+          const prevClose = Number(h.cdscPrevClose || ltp);
+          const isMutualFund = ltp < 35 || /mutual fund|yojana|scheme|fund/i.test(h.scriptDesc || "");
+          const fallbackQuote = {
+            symbol: mSym,
+            companyName: h.scriptDesc || h.companyName || mSym,
+            sector: isMutualFund ? "Mutual Fund" : "Others",
+            sectorPE: isMutualFund ? 12.0 : 22.5,
+            ltp,
+            open: prevClose,
+            high: ltp,
+            low: ltp,
+            prevClose,
+            pointChange: round2(ltp - prevClose),
+            percentageChange: prevClose > 0 ? round2(((ltp - prevClose) / prevClose) * 100) : 0,
+            volume: 1000,
+            turnover: round2(ltp * 1000),
+            high52w: round2(ltp * 1.18),
+            low52w: round2(ltp * 0.85),
+            eps: isMutualFund ? 1.2 : round2(ltp / 22),
+            peRatio: isMutualFund ? 8.5 : 22.0,
+            bookValue: isMutualFund ? 10.5 : 145.0,
+            pbRatio: isMutualFund ? round2(ltp / 10.5) : round2(ltp / 145),
+            roe: 11.5,
+            npl: 0,
+            divHistory5YrAvg: 10.0,
+            epsGrowthYoY: 10.0,
+            lockInRisk: "SAFE",
+            bonusDividend: 0,
+            cashDividend: 0,
+            topBuyBrokers: [58, 45],
+            topSellBrokers: [34, 28],
+            bias: "neutral",
+            source: "CDSC_MEROSHARE_HOLDING",
+            updatedAt: "2026-10-02T15:00:00.000Z"
+          };
+          this.quotes.set(mSym, fallbackQuote);
+          this.reanchorHistoryToLiveQuote(mSym, ltp, prevClose, ltp, ltp, 1000);
+        }
+      }
+    } catch (_) {}
   }
 
   applyRealDataToSymbol(sym) {
@@ -394,19 +472,26 @@ class NepseProvider {
   async ensureSymbolRealData(sym, force = false) {
     const cleanSym = String(sym || "").trim().toUpperCase();
     if (!cleanSym || cleanSym === "NEPSE") return null;
+    if (!force && realDataEngine.getCached(cleanSym)) {
+      return this.quotes.get(cleanSym) || null;
+    }
     await realDataEngine.enrichSymbol(cleanSym, force);
     this.applyRealDataToSymbol(cleanSym);
+    this.applyMeroSharePortfolioLocks();
     return this.quotes.get(cleanSym) || null;
   }
 
   startBackgroundRealDataSync() {
-    // Immediately warm live news cache on startup and refresh every 2 minutes
+    // Warm news cache once on startup
     setTimeout(() => {
-      this.getNewsFeed("", true).catch(() => {});
+      this.getNewsFeed("", false).catch(() => {});
     }, 300);
-    setInterval(() => {
-      this.getNewsFeed("", true).catch(() => {});
-    }, 120000);
+
+    // Only run background symbol scraping if real_market_cache has not been populated yet
+    const cachedCount = Object.keys(realDataEngine.cache?.stocks || {}).length;
+    if (cachedCount >= 100) {
+      return;
+    }
 
     setTimeout(async () => {
       try {
@@ -420,12 +505,13 @@ class NepseProvider {
           .sort((a, b) => (b.turnover || 0) - (a.turnover || 0))
           .map((q) => q.symbol);
 
-        const uniqueAll = Array.from(new Set([...priorityExtras, ...coreSymbols, ...allQuotes]));
-        // Warm in chunks of 25 so disk cache updates progressively across all 250+ active NEPSE equities
+        const uniqueAll = Array.from(new Set([...priorityExtras, ...coreSymbols, ...allQuotes]))
+          .filter((s) => !realDataEngine.getCached(s));
         for (let i = 0; i < uniqueAll.length; i += 25) {
           const batch = uniqueAll.slice(i, i + 25);
           await realDataEngine.warmSymbols(batch, 6);
           this.applyAllCachedRealData();
+          this.applyMeroSharePortfolioLocks();
           this.saveLiveDiskCache();
         }
       } catch (_) {}
@@ -794,6 +880,9 @@ class NepseProvider {
             );
           }
           this.dataSource = raw.dataSource || "LIVE_CACHED_EOD";
+          if (this.quotes.size > 100) {
+            this.lastScrapedAt = Date.now();
+          }
         }
       }
     } catch (_) {}
@@ -856,8 +945,11 @@ class NepseProvider {
   async refreshLiveQuotes(force = false) {
     const now = Date.now();
     const { isOpen } = this.isMarketOpenNow();
-    // When NEPSE market is closed (e.g., Friday/Saturday/After 3 PM) and we already have 100+ real EOD quotes loaded, only re-scrape every 15 minutes unless forced
-    const minIntervalMs = !isOpen && this.quotes.size > 100 ? 900000 : 60000;
+    // When NEPSE market is closed and we already have 100+ verified EOD quotes loaded, do NOT re-scrape and mutate quotes unless explicitly forced
+    if (!isOpen && !force && this.quotes.size > 100) {
+      return;
+    }
+    const minIntervalMs = !isOpen && this.quotes.size > 100 ? 3600000 : 60000;
     if (!force && this.lastScrapedAt > 0 && now - this.lastScrapedAt < minIntervalMs) {
       return;
     }
@@ -999,6 +1091,7 @@ class NepseProvider {
           }
         });
 
+        this.applyMeroSharePortfolioLocks();
         this.syncNepseIndexQuote();
         if (updatedCount > 10) {
           this.dataSource = "MEROLAGANI_LIVE";
@@ -1050,6 +1143,7 @@ class NepseProvider {
             }
           }
         });
+        this.applyMeroSharePortfolioLocks();
         this.syncNepseIndexQuote();
         if (count > 5) {
           this.dataSource = "SHARESANSAR_LIVE";
@@ -1144,7 +1238,7 @@ class NepseProvider {
     await this.refreshLiveQuotes();
     const sym = (symbol || "").trim().toUpperCase();
     if (!sym) return null;
-    if (sym !== "NEPSE") {
+    if (sym !== "NEPSE" && !realDataEngine.getCached(sym) && this.isMarketOpenNow().isOpen) {
       await this.ensureSymbolRealData(sym, false);
     }
     const q = this.quotes.get(sym) || null;
@@ -1157,7 +1251,7 @@ class NepseProvider {
 
   async getAllQuotes() {
     await this.refreshLiveQuotes();
-    this.applyAllCachedRealData();
+    this.applyMeroSharePortfolioLocks();
     const sectors = this.getSectors();
     const sectorMap = new Map(sectors.map((s) => [s.name, s]));
     const regimeObj = this.getMarketRegime();
@@ -1200,12 +1294,13 @@ class NepseProvider {
         return false;
       });
 
-      if (matchedSub && Number(matchedSub.index) > 0) {
+      const subVal = Number(matchedSub?.value || matchedSub?.index || 0);
+      if (matchedSub && subVal > 0) {
         return {
           ...s,
-          indexVal: round2(Number(matchedSub.index)),
-          change: round2(Number(matchedSub.change) || 0),
-          percentageChange: round2(Number(matchedSub.pctChange) || 0),
+          indexVal: round2(subVal),
+          change: round2(Number(matchedSub.pointChange ?? matchedSub.change ?? 0)),
+          percentageChange: round2(Number(matchedSub.change ?? matchedSub.pctChange ?? 0)),
           advances,
           declines,
           totalScripts: members.length,

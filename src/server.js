@@ -225,75 +225,14 @@ const server = http.createServer(async (req, res) => {
   // 2. Live NEPSE Market & Signals Overview API (for Control Center UI)
   if (pathname === "/api/dashboard" && req.method === "GET") {
     try {
-      const market = await nepseProvider.getMarketSummary();
-      const meroPortfolio = loadMeroPortfolio();
-      const meroHoldings = meroPortfolio?.holdings || {};
-      const quotes = await nepseProvider.getAllQuotes();
-
-      // Ensure every scrip in the user's CDSC MeroShare portfolio is represented in quotes with 100% consistent CDSC LTP
-      const quoteBySym = new Map(quotes.map((q) => [q.symbol, q]));
-      for (const [mSym, h] of Object.entries(meroHoldings)) {
-        if (!h || Number(h.kitta) <= 0) continue;
-        const cdscLtp = Number(h.cdscLtp || 0);
-        const cdscPrev = Number(h.cdscPrevClose || cdscLtp);
-        if (quoteBySym.has(mSym) && cdscLtp > 0) {
-          const existingQ = quoteBySym.get(mSym);
-          // When market is closed or quote came from fallback seed, lock to official CDSC MeroShare LTP
-          if (!market.isOpen || existingQ.source === "NEPSE_VERIFIED_FEED") {
-            existingQ.ltp = cdscLtp;
-            if (cdscPrev > 0) existingQ.prevClose = cdscPrev;
-            existingQ.pointChange = Number((existingQ.ltp - existingQ.prevClose).toFixed(2));
-            existingQ.percentageChange = existingQ.prevClose > 0
-              ? Number((((existingQ.ltp - existingQ.prevClose) / existingQ.prevClose) * 100).toFixed(2))
-              : 0;
-            existingQ.high = Math.max(existingQ.high || cdscLtp, cdscLtp);
-            existingQ.low = Math.min(existingQ.low || cdscLtp, cdscLtp);
-            nepseProvider.reanchorHistoryToLiveQuote(mSym, existingQ.ltp, existingQ.prevClose, existingQ.high, existingQ.low, existingQ.volume);
-          }
-        } else if (!quoteBySym.has(mSym)) {
-          const ltp = Number(h.cdscLtp || h.wacc || 100);
-          const prevClose = Number(h.cdscPrevClose || ltp);
-          const isMutualFund = ltp < 35 || /mutual fund|yojana|scheme|fund/i.test(h.scriptDesc || "");
-          if (!isMutualFund) {
-            nepseProvider.ensureSymbolRealData(mSym, false).catch(() => {});
-          }
-          const fallbackQuote = {
-            symbol: mSym,
-            companyName: h.scriptDesc || h.companyName || mSym,
-            sector: isMutualFund ? "Mutual Fund" : "Others",
-            sectorPE: isMutualFund ? 12.0 : 22.5,
-            ltp,
-            open: prevClose,
-            high: ltp,
-            low: ltp,
-            prevClose,
-            pointChange: Number((ltp - prevClose).toFixed(2)),
-            percentageChange: prevClose > 0 ? Number((((ltp - prevClose) / prevClose) * 100).toFixed(2)) : 0,
-            volume: 1000,
-            turnover: ltp * 1000,
-            high52w: Number((ltp * 1.18).toFixed(2)),
-            low52w: Number((ltp * 0.85).toFixed(2)),
-            eps: isMutualFund ? 1.2 : Number((ltp / 22).toFixed(2)),
-            peRatio: isMutualFund ? 8.5 : 22.0,
-            bookValue: isMutualFund ? 10.5 : 145.0,
-            pbRatio: isMutualFund ? Number((ltp / 10.5).toFixed(2)) : Number((ltp / 145).toFixed(2)),
-            roe: 11.5,
-            npl: 0,
-            divHistory5YrAvg: 10.0,
-            epsGrowthYoY: 10.0,
-            lockInRisk: "SAFE",
-            bonusDividend: 0,
-            cashDividend: 0,
-            topBuyBrokers: [58, 45],
-            topSellBrokers: [34, 28],
-            source: "CDSC_MEROSHARE_HOLDING"
-          };
-          quotes.push(fallbackQuote);
-        }
+      const forceRefresh = Boolean(parsedUrl.query.refresh);
+      if (forceRefresh) {
+        await nepseProvider.refreshLiveQuotes(true);
       }
-
+      const market = await nepseProvider.getMarketSummary();
+      const quotes = await nepseProvider.getAllQuotes();
       const sectors = nepseProvider.getSectors();
-      const newsFeed = await nepseProvider.getNewsFeed();
+      const newsFeed = await nepseProvider.getNewsFeed("", false);
 
       const signals = quotes
         .map((q) => {
@@ -323,7 +262,7 @@ const server = http.createServer(async (req, res) => {
           };
         })
         .filter(Boolean)
-        .sort((a, b) => (b.realOHLCVVerified ? 1 : 0) - (a.realOHLCVVerified ? 1 : 0) || (b.isCoreSeed ? 1 : 0) - (a.isCoreSeed ? 1 : 0) || b.quantScore - a.quantScore);
+        .sort((a, b) => (b.realOHLCVVerified ? 1 : 0) - (a.realOHLCVVerified ? 1 : 0) || (b.isCoreSeed ? 1 : 0) - (a.isCoreSeed ? 1 : 0) || b.quantScore - a.quantScore || a.symbol.localeCompare(b.symbol));
 
       const state = getAppState();
       return sendJson(res, 200, {
@@ -368,77 +307,9 @@ const server = http.createServer(async (req, res) => {
       const sym = (parsedUrl.query.symbol || pathname.replace("/api/chart/", "").replace("/api/chart", "") || "")
         .trim()
         .toUpperCase();
-      let quote = await nepseProvider.getQuote(sym);
-      let rawBars = nepseProvider.getHistoricalBars(sym);
-
-      const meroPortfolio = loadMeroPortfolio();
-      const h = meroPortfolio?.holdings?.[sym];
-      const market = nepseProvider.isMarketOpenNow();
-
-      if (quote && h && Number(h.cdscLtp) > 0 && (!market.isOpen || quote.source === "NEPSE_VERIFIED_FEED")) {
-        quote.ltp = Number(h.cdscLtp);
-        if (Number(h.cdscPrevClose) > 0) quote.prevClose = Number(h.cdscPrevClose);
-        quote.pointChange = Number((quote.ltp - quote.prevClose).toFixed(2));
-        quote.percentageChange = quote.prevClose > 0
-          ? Number((((quote.ltp - quote.prevClose) / quote.prevClose) * 100).toFixed(2))
-          : 0;
-        quote.high = Math.max(quote.high || quote.ltp, quote.ltp);
-        quote.low = Math.min(quote.low || quote.ltp, quote.ltp);
-        nepseProvider.reanchorHistoryToLiveQuote(sym, quote.ltp, quote.prevClose, quote.high, quote.low, quote.volume);
-        rawBars = nepseProvider.getHistoricalBars(sym);
-      }
-
-      if (!quote || !rawBars) {
-        if (h && Number(h.kitta) > 0) {
-          const ltp = Number(h.cdscLtp || h.wacc || 10);
-          const prevClose = Number(h.cdscPrevClose || ltp);
-          quote = {
-            symbol: sym,
-            companyName: h.scriptDesc || h.companyName || sym,
-            sector: ltp < 35 ? "Mutual Fund" : "Others",
-            sectorPE: ltp < 35 ? 12.0 : 22.5,
-            ltp,
-            open: prevClose,
-            high: ltp,
-            low: ltp,
-            prevClose,
-            pointChange: Number((ltp - prevClose).toFixed(2)),
-            percentageChange: prevClose > 0 ? Number((((ltp - prevClose) / prevClose) * 100).toFixed(2)) : 0,
-            volume: 1000,
-            turnover: ltp * 1000,
-            high52w: Number((ltp * 1.15).toFixed(2)),
-            low52w: Number((ltp * 0.88).toFixed(2)),
-            eps: ltp < 35 ? 1.2 : Number((ltp / 22).toFixed(2)),
-            peRatio: ltp < 35 ? 8.5 : 22.0,
-            bookValue: ltp < 35 ? 10.5 : 145.0,
-            pbRatio: ltp < 35 ? Number((ltp / 10.5).toFixed(2)) : Number((ltp / 145).toFixed(2)),
-            roe: 11.5,
-            npl: 0,
-            divHistory5YrAvg: 10.0,
-            epsGrowthYoY: 10.0,
-            lockInRisk: "SAFE",
-            bonusDividend: 0,
-            cashDividend: 0,
-            topBuyBrokers: [58, 45],
-            topSellBrokers: [34, 28],
-            source: "CDSC_MEROSHARE_HOLDING"
-          };
-          const now = new Date();
-          rawBars = Array.from({ length: 60 }, (_, idx) => {
-            const d = new Date(now);
-            d.setDate(d.getDate() - (59 - idx));
-            return {
-              date: d.toISOString().slice(0, 10),
-              open: ltp,
-              high: Number((ltp * 1.005).toFixed(2)),
-              low: Number((ltp * 0.995).toFixed(2)),
-              close: ltp,
-              volume: 1000,
-              turnover: ltp * 1000
-            };
-          });
-        }
-      }
+      nepseProvider.applyMeroSharePortfolioLocks();
+      const quote = await nepseProvider.getQuote(sym);
+      const rawBars = nepseProvider.getHistoricalBars(sym);
 
       if (!quote || !rawBars) {
         return sendJson(res, 404, { ok: false, error: "Symbol not found" });
