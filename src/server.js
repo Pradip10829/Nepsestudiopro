@@ -226,8 +226,23 @@ function parseBody(req) {
 }
 
 const requestHandler = async (req, res) => {
-  const parsedUrl = url.parse(req.url, true);
-  const pathname = parsedUrl.pathname;
+  const parsedUrl = url.parse(req.url || "/", true);
+  let pathname = parsedUrl.pathname || "/";
+  if (parsedUrl.query && parsedUrl.query.__path) {
+    const rawPath = String(parsedUrl.query.__path).replace(/^\/+/, "");
+    pathname = "/api/" + rawPath;
+  } else if (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/chart") ||
+    pathname.startsWith("/stock") ||
+    pathname.startsWith("/news") ||
+    pathname.startsWith("/meroshare") ||
+    pathname.startsWith("/whatsapp") ||
+    pathname.startsWith("/chat") ||
+    pathname.startsWith("/command")
+  ) {
+    pathname = "/api" + pathname;
+  }
 
   // 1. Interactive WhatsApp Bot Chat & Command Runner API
   if ((pathname === "/api/chat" || pathname === "/api/command") && req.method === "POST") {
@@ -1370,7 +1385,11 @@ const requestHandler = async (req, res) => {
   }
 
   // Serve Static Files from public/
-  let filePath = pathname === "/" ? path.join(PUBLIC_DIR, "index.html") : path.join(PUBLIC_DIR, pathname);
+  const isRootOrSpa = pathname === "/" || pathname === "/index.html" || pathname === "/api/index.js";
+  let filePath = isRootOrSpa ? path.join(PUBLIC_DIR, "index.html") : path.join(PUBLIC_DIR, pathname);
+  if (!fs.existsSync(filePath) && !pathname.startsWith("/api/")) {
+    filePath = path.join(PUBLIC_DIR, "index.html");
+  }
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     const ext = path.extname(filePath).toLowerCase();
     const mimeTypes = {
@@ -1381,12 +1400,13 @@ const requestHandler = async (req, res) => {
       ".png": "image/png",
       ".svg": "image/svg+xml"
     };
+    const content = fs.readFileSync(filePath);
     res.writeHead(200, { "Content-Type": mimeTypes[ext] || "text/plain" });
-    return fs.createReadStream(filePath).pipe(res);
+    return res.end(content);
   }
 
   res.writeHead(404, { "Content-Type": "text/plain" });
-  res.end("Not Found");
+  return res.end("Not Found");
 };
 
 const server = http.createServer(requestHandler);
