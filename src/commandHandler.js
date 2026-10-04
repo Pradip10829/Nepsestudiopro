@@ -196,6 +196,11 @@ async function handleMessage(rawText, senderId = "default") {
     return await getWhaleRadarMessage(parts[1]);
   }
 
+  // 9b. Smart Money Concepts (SMC) Order Block, FVG, BOS/CHoCH & OTE Analysis (!smc or !smc NABIL)
+  if (["!smc", "/smc", "smc", "!ict", "ict", "!orderblock", "orderblock"].includes(cmd)) {
+    return await getSmcAnalysisMessage(parts[1]);
+  }
+
   // 10. AI Smart Portfolio Optimizer (!build 200000)
   if (["!build", "/build", "build", "!optimize", "!allocate"].includes(cmd)) {
     const cap = parts[1] ? parseFloat(parts[1].replace(/,/g, "")) : 200000;
@@ -2020,6 +2025,64 @@ async function handleWatchlistCommand(args, senderId) {
     `• *Strongest Watchlist Pick:* *${bestWatch?.symbol || "NABIL"}* (Score: *${bestWatch?.quantScore || 85}/100* | Verdict: *${bestWatch?.action || "BUY"}*)\n` +
     `• *🧠 Next Step:* Reply *!buy ${bestWatch?.symbol || "NABIL"}* for exact entry tranches.\n` +
     `➕ _Add: *!watchlist add SHPC* | Remove: *!watchlist remove SHPC*_`;
+  return msg;
+}
+
+async function getSmcAnalysisMessage(symbolArg) {
+  if (symbolArg) {
+    const q = await nepseProvider.getQuote(symbolArg.toUpperCase());
+    if (!q) return `❌ Symbol *${symbolArg.toUpperCase()}* not found in NEPSE. Try *!smc NABIL* or *!smc*.`;
+    const bars = nepseProvider.getHistoricalBars(q.symbol);
+    const a = analyzeStock(q, bars);
+    if (!a || !a.smc) return `❌ Insufficient bar history for *${q.symbol}*.`;
+    const smc = a.smc;
+    return (
+      `🏦 *SMC (SMART MONEY CONCEPTS) BLUEPRINT — ${q.symbol}* (${q.companyName})\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `• *Current LTP:* NPR ${q.ltp} (${q.pointChange >= 0 ? "+" : ""}${q.percentageChange}%)\n` +
+      `• *SMC Institutional Verdict:* *${smc.smcVerdict}*\n\n` +
+      `📐 *1. MARKET STRUCTURE (BOS / CHoCH)*\n` +
+      `• *Structure State:* ${smc.structureType}\n` +
+      `• *Detail:* ${smc.structureDesc}\n` +
+      `• *Swing High (BSL):* NPR ${smc.lastSwingHigh?.price} | *Swing Low (SSL):* NPR ${smc.lastSwingLow?.price}\n\n` +
+      `🧱 *2. INSTITUTIONAL ORDER BLOCKS (OB)*\n` +
+      `• *Bullish Demand OB (Buy Zone):* *${smc.bullishOB.zoneText}* (${smc.bullishOB.status})\n` +
+      `• *Bearish Supply OB (Sell Zone):* *${smc.bearishOB.zoneText}* (${smc.bearishOB.status})\n\n` +
+      `⚡ *3. FAIR VALUE GAP (FVG / IMBALANCE)*\n` +
+      `• *Imbalance Status:* ${smc.activeFVGText}\n\n` +
+      `💧 *4. LIQUIDITY POOLS & STOP-HUNTS (BSL / SSL)*\n` +
+      `• *Liquidity Radar:* ${smc.liquidityStatus}\n\n` +
+      `⚖️ *5. DEALING RANGE (PREMIUM vs. DISCOUNT & OTE)*\n` +
+      `• *Current Zone:* *${smc.dealingZone}*\n` +
+      `• *50% Equilibrium (Fair Value):* NPR ${smc.equilibrium50}\n` +
+      `• *Golden OTE Discount (61.8%–78.6% Fib):* NPR ${smc.oteLow} – NPR ${smc.oteHigh}\n\n` +
+      `🎯 *SMC EXECUTION PLAYBOOK:*\n` +
+      `${smc.smcPlaybook}`
+    );
+  }
+
+  const quotes = await nepseProvider.getAllQuotes();
+  const analyzed = quotes
+    .map((q) => analyzeStock(q, nepseProvider.getHistoricalBars(q.symbol)))
+    .filter((a) => a && a.smc);
+
+  const topSmcBuys = analyzed
+    .filter((a) => a.smc.smcVerdict.includes("🟢") && a.quantScore >= 64)
+    .sort((a, b) => b.quantScore - a.quantScore)
+    .slice(0, 8);
+
+  let msg =
+    `🏦 *NEPSE SMART MONEY CONCEPTS (SMC) RADAR*\n` +
+    `_Top Institutional Order Block, OTE Discount & Liquidity Sweep Setups_\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+  for (const a of topSmcBuys) {
+    msg +=
+      `• *${a.symbol}* (NPR ${a.ltp}) — *${a.smc.structureTag}* | ${a.smc.dealingZone.split("(")[0].trim()}\n` +
+      `   Demand OB: *${a.smc.bullishOB.zoneText}* | OTE: Rs ${a.smc.oteLow}–${a.smc.oteHigh} | Supply OB: ${a.smc.bearishOB.zoneText}\n`;
+  }
+
+  msg += `\n💡 _Type *!smc NABIL* (or any symbol) for its full 5-part SMC Order Block, FVG & Liquidity blueprint._`;
   return msg;
 }
 

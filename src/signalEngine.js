@@ -1129,6 +1129,327 @@ function findSupportResistanceAndFib(bars) {
   };
 }
 
+/**
+ * Institutional Smart Money Concepts (SMC / ICT) Engine for NEPSE
+ * Detects:
+ *  1. Market Structure: BOS (Break of Structure) vs CHoCH (Change of Character)
+ *  2. Order Blocks: Unmitigated Bullish Order Block (Demand) & Bearish Order Block (Supply)
+ *  3. Fair Value Gaps (FVG): 3-Candle Bullish & Bearish Imbalance Zones
+ *  4. Liquidity Pools & Stop-Hunts: BSL (Buy-Side Liquidity), SSL (Sell-Side Liquidity), EQH/EQL & Sweeps
+ *  5. Dealing Range: Premium (>50%), Equilibrium (50%), Discount (<50%) & OTE (61.8%–78.6% Optimal Trade Entry)
+ */
+function detectSmartMoneyConcepts(bars, sr, atr14) {
+  const recent = bars.slice(-Math.min(60, bars.length));
+  const n = recent.length;
+  const last = recent[n - 1];
+  const prev = recent[n - 2] || last;
+  const currentPrice = last.close;
+  const atr = Math.max(1, atr14 || currentPrice * 0.02);
+
+  // 1. Identify fractal 5-bar Swing Highs and Swing Lows
+  const swingHighs = [];
+  const swingLows = [];
+  for (let i = 2; i < n - 1; i++) {
+    const b = recent[i];
+    if (
+      b.high >= recent[i - 1].high &&
+      b.high >= recent[i - 2].high &&
+      b.high >= recent[i + 1].high &&
+      (i + 2 >= n || b.high >= recent[i + 2].high)
+    ) {
+      swingHighs.push({ idx: i, price: round2(b.high), date: b.date || "Recent" });
+    }
+    if (
+      b.low <= recent[i - 1].low &&
+      b.low <= recent[i - 2].low &&
+      b.low <= recent[i + 1].low &&
+      (i + 2 >= n || b.low <= recent[i + 2].low)
+    ) {
+      swingLows.push({ idx: i, price: round2(b.low), date: b.date || "Recent" });
+    }
+  }
+
+  const lastSH = swingHighs[swingHighs.length - 1] || { idx: Math.max(0, n - 10), price: sr.resistance1, date: "Recent" };
+  const prevSH = swingHighs[swingHighs.length - 2] || lastSH;
+  const lastSL = swingLows[swingLows.length - 1] || { idx: Math.max(0, n - 10), price: sr.support1, date: "Recent" };
+  const prevSL = swingLows[swingLows.length - 2] || lastSL;
+
+  // 2. BOS (Break of Structure) vs CHoCH (Change of Character)
+  const wasLowerHighs = lastSH.price < prevSH.price && lastSL.price < prevSL.price;
+  const wasHigherLows = lastSH.price >= prevSH.price && lastSL.price >= prevSL.price;
+
+  let structureType = "INTERNAL RANGE STRUCTURE 🟡";
+  let structureTag = "RANGE";
+  let structureLevel = round2(sr.fib500);
+  let structureDesc = `Consolidating inside dealing range between Swing Low Rs ${lastSL.price} and Swing High Rs ${lastSH.price}`;
+
+  if (currentPrice > lastSH.price) {
+    structureLevel = lastSH.price;
+    if (wasLowerHighs) {
+      structureType = "BULLISH CHoCH (TREND REVERSAL) 🟢";
+      structureTag = "BULLISH CHoCH";
+      structureDesc = `Price broke above recent Lower High (Rs ${lastSH.price}) — Smart Money shifting from markdown to accumulation`;
+    } else {
+      structureType = "BULLISH BOS (CONTINUATION) 🟢";
+      structureTag = "BULLISH BOS";
+      structureDesc = `Price broke and closed above Swing High (Rs ${lastSH.price}) confirming institutional trend continuation`;
+    }
+  } else if (currentPrice < lastSL.price) {
+    structureLevel = lastSL.price;
+    if (wasHigherLows) {
+      structureType = "BEARISH CHoCH (REVERSAL WARNING) 🔴";
+      structureTag = "BEARISH CHoCH";
+      structureDesc = `Price broke below recent Higher Low (Rs ${lastSL.price}) — First institutional warning of distribution`;
+    } else {
+      structureType = "BEARISH BOS (BREAKDOWN) 🔴";
+      structureTag = "BEARISH BOS";
+      structureDesc = `Price broke below Swing Low (Rs ${lastSL.price}) confirming bearish markdown structure`;
+    }
+  } else if (wasHigherLows && currentPrice >= sr.fib500) {
+    structureType = "BULLISH HIGHER-LOW STRUCTURE (BOS INTACT) 🟢";
+    structureTag = "BULLISH HL";
+    structureLevel = lastSH.price;
+    structureDesc = `Holding Higher Lows above Equilibrium (Rs ${sr.fib500}); next Bullish BOS trigger is > Rs ${lastSH.price}`;
+  } else if (wasLowerHighs && currentPrice < sr.fib500) {
+    structureType = "BEARISH LOWER-HIGH STRUCTURE 🔴";
+    structureTag = "BEARISH LH";
+    structureLevel = lastSL.price;
+    structureDesc = `Trading in Lower-High structure below Equilibrium (Rs ${sr.fib500}); needs break > Rs ${lastSH.price} for Bullish CHoCH`;
+  }
+
+  // 3. Institutional Order Blocks (Bullish Demand OB & Bearish Supply OB)
+  let foundBullOB = null;
+  let foundBearOB = null;
+
+  for (let i = n - 3; i >= Math.max(1, n - 45); i--) {
+    const candle = recent[i];
+    const next1 = recent[i + 1];
+    const next2 = recent[i + 2];
+
+    // Bullish Order Block: bearish/small candle followed by strong bullish displacement
+    if (!foundBullOB && candle.close <= candle.open) {
+      const moveUp = Math.max(next1.close - candle.low, next2 ? next2.close - candle.low : 0);
+      if (moveUp >= atr * 1.25 && candle.low <= currentPrice * 1.01) {
+        const obLow = round2(candle.low);
+        const obHigh = round2(Math.max(candle.open, candle.close, candle.low + atr * 0.35));
+        // Check if subsequent bars completely broke below obLow
+        const invalidated = recent.slice(i + 2).some((b) => b.close < obLow * 0.99);
+        if (!invalidated && obHigh <= currentPrice * 1.03) {
+          foundBullOB = {
+            low: obLow,
+            high: obHigh,
+            midpoint: round2((obLow + obHigh) / 2),
+            date: candle.date || "Recent",
+            idx: i
+          };
+        }
+      }
+    }
+
+    // Bearish Order Block: bullish candle followed by strong bearish displacement
+    if (!foundBearOB && candle.close >= candle.open) {
+      const moveDown = Math.max(candle.high - next1.close, next2 ? candle.high - next2.close : 0);
+      if (moveDown >= atr * 1.25 && candle.high >= currentPrice * 0.99) {
+        const obHigh = round2(candle.high);
+        const obLow = round2(Math.min(candle.open, candle.close, candle.high - atr * 0.35));
+        const invalidated = recent.slice(i + 2).some((b) => b.close > obHigh * 1.01);
+        if (!invalidated && obLow >= currentPrice * 0.97) {
+          foundBearOB = {
+            low: obLow,
+            high: obHigh,
+            midpoint: round2((obLow + obHigh) / 2),
+            date: candle.date || "Recent",
+            idx: i
+          };
+        }
+      }
+    }
+  }
+
+  const bullOBLow = foundBullOB ? foundBullOB.low : sr.demandBlockLow;
+  const bullOBHigh = foundBullOB ? foundBullOB.high : sr.demandBlockHigh;
+  const bearOBLow = foundBearOB ? foundBearOB.low : sr.supplyBlockLow;
+  const bearOBHigh = foundBearOB ? foundBearOB.high : sr.supplyBlockHigh;
+
+  const inBullOB = currentPrice >= bullOBLow * 0.995 && currentPrice <= bullOBHigh * 1.015;
+  const inBearOB = currentPrice >= bearOBLow * 0.985 && currentPrice <= bearOBHigh * 1.005;
+
+  const bullishOB = {
+    low: bullOBLow,
+    high: bullOBHigh,
+    midpoint: round2((bullOBLow + bullOBHigh) / 2),
+    date: foundBullOB?.date || "Swing Demand",
+    status: inBullOB ? "MITIGATING NOW (IN DEMAND OB) 🎯🟢" : "UNMITIGATED DEMAND ZONE 🟢",
+    zoneText: `Rs ${bullOBLow} – Rs ${bullOBHigh}`
+  };
+
+  const bearishOB = {
+    low: bearOBLow,
+    high: bearOBHigh,
+    midpoint: round2((bearOBLow + bearOBHigh) / 2),
+    date: foundBearOB?.date || "Swing Supply",
+    status: inBearOB ? "TESTING SUPPLY OB NOW ⚠️🔴" : "UNMITIGATED SUPPLY ZONE 🔴",
+    zoneText: `Rs ${bearOBLow} – Rs ${bearOBHigh}`
+  };
+
+  // 4. Fair Value Gaps (FVG / 3-Candle Price Imbalance)
+  let bullishFVG = null;
+  let bearishFVG = null;
+
+  for (let i = n - 1; i >= Math.max(2, n - 30); i--) {
+    const c1 = recent[i - 2];
+    const c2 = recent[i - 1];
+    const c3 = recent[i];
+
+    // Bullish FVG: Candle 3 Low > Candle 1 High with bullish middle candle
+    if (!bullishFVG && c3.low > c1.high * 1.002 && c2.close > c2.open) {
+      const gapLow = round2(c1.high);
+      const gapHigh = round2(c3.low);
+      const fullyFilled = recent.slice(i + 1).some((b) => b.close < gapLow);
+      if (!fullyFilled) {
+        bullishFVG = {
+          type: "BULLISH FVG",
+          bottom: gapLow,
+          top: gapHigh,
+          midpoint: round2((gapLow + gapHigh) / 2),
+          date: c2.date || "Recent",
+          idx: i - 1,
+          zoneText: `Rs ${gapLow} – Rs ${gapHigh}`
+        };
+      }
+    }
+
+    // Bearish FVG: Candle 3 High < Candle 1 Low with bearish middle candle
+    if (!bearishFVG && c3.high < c1.low * 0.998 && c2.close < c2.open) {
+      const gapLow = round2(c3.high);
+      const gapHigh = round2(c1.low);
+      const fullyFilled = recent.slice(i + 1).some((b) => b.close > gapHigh);
+      if (!fullyFilled) {
+        bearishFVG = {
+          type: "BEARISH FVG",
+          bottom: gapLow,
+          top: gapHigh,
+          midpoint: round2((gapLow + gapHigh) / 2),
+          date: c2.date || "Recent",
+          idx: i - 1,
+          zoneText: `Rs ${gapLow} – Rs ${gapHigh}`
+        };
+      }
+    }
+  }
+
+  const activeFVGText = bullishFVG
+    ? `Bullish FVG @ ${bullishFVG.zoneText} (CE Midpoint Rs ${bullishFVG.midpoint}) 🟢`
+    : bearishFVG
+      ? `Bearish FVG @ ${bearishFVG.zoneText} (Resistance Magnet Rs ${bearishFVG.midpoint}) 🔴`
+      : "Balanced Price Action (Recent FVGs Mitigated) ⚪";
+
+  // 5. Liquidity Pools (BSL / SSL / EQH / EQL) & Stop-Hunt Sweeps
+  const prior20Lows = recent.slice(-22, -2).map((b) => b.low);
+  const prior20Highs = recent.slice(-22, -2).map((b) => b.high);
+  const sslPoolPrice = round2(prior20Lows.length ? Math.min(...prior20Lows) : sr.support1);
+  const bslPoolPrice = round2(prior20Highs.length ? Math.max(...prior20Highs) : sr.resistance1);
+
+  const sslSweep =
+    (last.low < sslPoolPrice && last.close > sslPoolPrice) ||
+    (prev.low < sslPoolPrice && last.close > sslPoolPrice && last.close > last.open);
+  const bslSweep =
+    (last.high > bslPoolPrice && last.close < bslPoolPrice) ||
+    (prev.high > bslPoolPrice && last.close < bslPoolPrice && last.close < last.open);
+
+  const hasEqualHighs =
+    swingHighs.length >= 2 && Math.abs(lastSH.price - prevSH.price) / Math.max(1, lastSH.price) <= 0.012;
+  const hasEqualLows =
+    swingLows.length >= 2 && Math.abs(lastSL.price - prevSL.price) / Math.max(1, lastSL.price) <= 0.012;
+
+  let liquidityStatus = `BSL Pool > Rs ${bslPoolPrice} | SSL Pool < Rs ${sslPoolPrice}`;
+  if (sslSweep) {
+    liquidityStatus = `BULLISH SSL SWEEP (Stop-Hunt below Rs ${sslPoolPrice} & Reclaimed) 🐋🟢`;
+  } else if (bslSweep) {
+    liquidityStatus = `BEARISH BSL SWEEP (Upthrust above Rs ${bslPoolPrice} & Rejected) ⚠️🔴`;
+  } else if (hasEqualHighs) {
+    liquidityStatus = `EQUAL HIGHS (EQH @ Rs ${lastSH.price}) — Strong Buy-Side Liquidity Magnet 🎯`;
+  } else if (hasEqualLows) {
+    liquidityStatus = `EQUAL LOWS (EQL @ Rs ${lastSL.price}) — Watch for Retail Stop Sweep Below 🛡️`;
+  }
+
+  // 6. Dealing Range: Premium (>50%) vs Equilibrium (50%) vs Discount (<50%) & OTE (61.8%–78.6% Fib)
+  const rangeLow = sr.swingLow;
+  const rangeHigh = sr.swingHigh;
+  const equilibrium50 = sr.fib500;
+  const oteHigh = sr.fib618; // 61.8% retracement from Swing High
+  const oteLow = round2(rangeHigh - Math.max(1, rangeHigh - rangeLow) * 0.786); // 78.6% retracement
+  const rangePct = round2(
+    Math.min(100, Math.max(0, ((currentPrice - rangeLow) / Math.max(1, rangeHigh - rangeLow)) * 100))
+  );
+
+  let dealingZone = "EQUILIBRIUM (50% FAIR VALUE) ⚖️🟡";
+  let isDiscount = currentPrice <= equilibrium50;
+  const inOteZone = currentPrice >= oteLow * 0.995 && currentPrice <= oteHigh * 1.005;
+
+  if (inOteZone) {
+    dealingZone = `OPTIMAL TRADE ENTRY (OTE 61.8%–78.6% Discount: Rs ${oteLow}–${oteHigh}) 🎯🟢`;
+  } else if (rangePct <= 38) {
+    dealingZone = `DEEP DISCOUNT ZONE (${rangePct}% of Range < Eq Rs ${equilibrium50}) 🟢`;
+  } else if (rangePct < 50) {
+    dealingZone = `DISCOUNT ZONE (${rangePct}% of Range < Eq Rs ${equilibrium50}) 🟢`;
+  } else if (rangePct <= 56) {
+    dealingZone = `EQUILIBRIUM 50% PIVOT (${rangePct}% of Range @ Rs ${equilibrium50}) ⚖️🟡`;
+  } else if (rangePct <= 78) {
+    dealingZone = `PREMIUM ZONE (${rangePct}% of Range > Eq Rs ${equilibrium50}) 🟠`;
+  } else {
+    dealingZone = `EXTREME PREMIUM (${rangePct}% of Range — Distribution Area) 🔴`;
+  }
+
+  // 7. Synthesize SMC Institutional Playbook
+  let smcVerdict = "SMC NEUTRAL / RANGE ACCUMULATION 🟡";
+  if (sslSweep || (inBullOB && structureType.includes("BULLISH")) || inOteZone) {
+    smcVerdict = "INSTITUTIONAL SMC BUY SETUP (Discount OB / Liquidity Sweep) 🐋🟢";
+  } else if (structureType.includes("BULLISH") && isDiscount) {
+    smcVerdict = "BULLISH STRUCTURE IN DISCOUNT (Ideal Smart Money Entry) 🟢";
+  } else if (structureType.includes("BULLISH") && !isDiscount) {
+    smcVerdict = "BULLISH STRUCTURE IN PREMIUM (Wait for OTE / OB Pullback) 🟡";
+  } else if (bslSweep || (inBearOB && structureType.includes("BEARISH"))) {
+    smcVerdict = "INSTITUTIONAL SMC DISTRIBUTION (Supply OB / BSL Sweep) 🚨🔴";
+  } else if (structureType.includes("BEARISH")) {
+    smcVerdict = "BEARISH SMC MARKET STRUCTURE (Wait for Bullish CHoCH > Rs " + lastSH.price + ") 🔴";
+  }
+
+  const smcPlaybook = `Wait for mitigation of Bullish Order Block (${bullishOB.zoneText}) or OTE Discount Zone (Rs ${oteLow}–${oteHigh}), target Buy-Side Liquidity above Rs ${bslPoolPrice} & Supply OB (${bearishOB.zoneText}).`;
+
+  return {
+    structureType,
+    structureTag,
+    structureLevel,
+    structureDesc,
+    lastSwingHigh: lastSH,
+    lastSwingLow: lastSL,
+    bullishOB,
+    bearishOB,
+    bullishFVG,
+    bearishFVG,
+    activeFVGText,
+    sslPoolPrice,
+    bslPoolPrice,
+    sslSweep,
+    bslSweep,
+    hasEqualHighs,
+    hasEqualLows,
+    liquidityStatus,
+    rangeLow,
+    rangeHigh,
+    equilibrium50,
+    oteLow,
+    oteHigh,
+    inOteZone,
+    isDiscount,
+    rangePct,
+    dealingZone,
+    smcVerdict,
+    smcPlaybook
+  };
+}
+
 function evaluateFundamentals(quote) {
   const eps = quote.eps || 15;
   const bv = quote.bookValue || 150;
@@ -1802,6 +2123,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
   const mtf = calcMultiTimeframe(bars, ema9, ema20, sma50, rsi14);
   const adxObj = calcADX(bars, 14);
   const sr = findSupportResistanceAndFib(bars);
+  const smc = detectSmartMoneyConcepts(bars, sr, atr14);
   const smartMoney = calcSmartMoneyFlow(bars, quote);
   const candlePattern = detectCandlestickPattern(bars);
   const chartPatternCMT = detectChartPatternsCMT(bars, atr14, sma200);
@@ -2697,6 +3019,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     },
     fundamentals,
     smartMoney,
+    smc,
     backtest,
     reasons
   };
@@ -2705,6 +3028,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
 module.exports = {
   analyzeStock,
   normalizeBarsForBookClose,
+  detectSmartMoneyConcepts,
   detectChartPatternsCMT,
   evaluateFundamentals,
   evaluateLongTermHold,

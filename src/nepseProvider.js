@@ -1490,17 +1490,30 @@ class NepseProvider {
     let liveScraped = [];
     let updatedAt = this._liveNewsUpdatedAt || null;
 
-    // Use 90-second in-memory cache unless forceRefresh is requested
     const nowMs = Date.now();
-    if (
-      !forceRefresh &&
-      this._liveNewsCache &&
-      Array.isArray(this._liveNewsCache) &&
-      this._liveNewsCache.length > 0 &&
-      nowMs - (this._liveNewsTime || 0) < 90000
-    ) {
+    if (!this._liveNewsCache) {
+      try {
+        let parsed = null;
+        if (fs.existsSync(liveNewsCacheFile)) {
+          parsed = JSON.parse(fs.readFileSync(liveNewsCacheFile, "utf8"));
+        } else {
+          parsed = require("../data/live_news_cache.json");
+        }
+        if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+          this._liveNewsCache = parsed.items.map((item) => {
+            const cls = this.classifyNewsSentiment(item.title, item.summary || "");
+            return { ...item, isLive: true, sentiment: cls.sentiment, horizonImpact: cls.horizonImpact };
+          });
+          this._liveNewsUpdatedAt = parsed.updatedAt || new Date().toISOString();
+          this._liveNewsTime = nowMs;
+          updatedAt = this._liveNewsUpdatedAt;
+        }
+      } catch (_) {}
+    }
+
+    if (!forceRefresh && this._liveNewsCache && Array.isArray(this._liveNewsCache) && this._liveNewsCache.length > 0) {
       liveScraped = this._liveNewsCache;
-    } else if (cheerio) {
+    } else if (forceRefresh && cheerio) {
       const https = require("https");
       const fetchHtml = (targetUrl) =>
         new Promise((resolve) => {

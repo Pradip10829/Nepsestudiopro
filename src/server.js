@@ -277,41 +277,46 @@ const requestHandler = async (req, res) => {
       const forceRefresh = Boolean(parsedUrl.query.refresh);
       if (forceRefresh) {
         await nepseProvider.refreshLiveQuotes(true);
+        global.__cachedDashboardSignals = null;
       }
       const market = await nepseProvider.getMarketSummary();
       const quotes = await nepseProvider.getAllQuotes();
       const sectors = nepseProvider.getSectors();
       const newsFeed = await nepseProvider.getNewsFeed("", false);
 
-      const signals = quotes
-        .map((q) => {
-          const bars = nepseProvider.getHistoricalBars(q.symbol);
-          const a = analyzeStock(q, bars);
-          if (!a) return null;
-          return {
-            ...a,
-            open: q.open,
-            high: q.high,
-            low: q.low,
-            prevClose: q.prevClose,
-            volume: q.volume,
-            turnover: q.turnover,
-            high52w: q.high52w,
-            low52w: q.low52w,
-            avg120d: q.avg120d,
-            avg180d: q.avg180d,
-            epsMeta: q.epsMeta,
-            floorsheetData: q.floorsheetData || null,
-            realOHLCVVerified: Boolean(q.realOHLCVVerified),
-            realBarsCount: q.realBarsCount || 0,
-            realFundamentalsVerified: Boolean(q.realFundamentalsVerified),
-            realFloorsheetVerified: Boolean(q.realFloorsheetVerified),
-            isCoreSeed: Boolean(q.isCoreSeed),
-            source: q.source
-          };
-        })
-        .filter(Boolean)
-        .sort((a, b) => (b.realOHLCVVerified ? 1 : 0) - (a.realOHLCVVerified ? 1 : 0) || (b.isCoreSeed ? 1 : 0) - (a.isCoreSeed ? 1 : 0) || b.quantScore - a.quantScore || a.symbol.localeCompare(b.symbol));
+      let signals = global.__cachedDashboardSignals;
+      if (!signals || signals.length !== quotes.length) {
+        signals = quotes
+          .map((q) => {
+            const bars = nepseProvider.getHistoricalBars(q.symbol);
+            const a = analyzeStock(q, bars);
+            if (!a) return null;
+            return {
+              ...a,
+              open: q.open,
+              high: q.high,
+              low: q.low,
+              prevClose: q.prevClose,
+              volume: q.volume,
+              turnover: q.turnover,
+              high52w: q.high52w,
+              low52w: q.low52w,
+              avg120d: q.avg120d,
+              avg180d: q.avg180d,
+              epsMeta: q.epsMeta,
+              floorsheetData: q.floorsheetData || null,
+              realOHLCVVerified: Boolean(q.realOHLCVVerified),
+              realBarsCount: q.realBarsCount || 0,
+              realFundamentalsVerified: Boolean(q.realFundamentalsVerified),
+              realFloorsheetVerified: Boolean(q.realFloorsheetVerified),
+              isCoreSeed: Boolean(q.isCoreSeed),
+              source: q.source
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => (b.realOHLCVVerified ? 1 : 0) - (a.realOHLCVVerified ? 1 : 0) || (b.isCoreSeed ? 1 : 0) - (a.isCoreSeed ? 1 : 0) || b.quantScore - a.quantScore || a.symbol.localeCompare(b.symbol));
+        global.__cachedDashboardSignals = signals;
+      }
 
       const state = getAppState();
       return sendJson(res, 200, {
@@ -475,21 +480,9 @@ const requestHandler = async (req, res) => {
   }
 
   if (pathname === "/api/meroshare/capitals" && req.method === "GET") {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4500);
-      const resp = await fetch("https://webbackend.cdsc.com.np/api/meroShare/capital/", {
-        headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-      if (resp.ok) {
-        const list = await resp.json();
-        if (Array.isArray(list) && list.length > 0) {
-          return sendJson(res, 200, { ok: true, source: "LIVE_CDSC", capitals: list });
-        }
-      }
-    } catch (_) {}
+    if (global.__cachedCdscCapitals && global.__cachedCdscCapitals.length > 0) {
+      return sendJson(res, 200, { ok: true, source: "CACHED_CDSC", capitals: global.__cachedCdscCapitals });
+    }
     return sendJson(res, 200, { ok: true, source: "BUILTIN_CDSC", capitals: [] });
   }
 
@@ -514,7 +507,7 @@ const requestHandler = async (req, res) => {
       const dpFiveDigit = dpId.length === 8 ? dpId.slice(3, 8) : dpId;
       let resolvedClientId = Number(body.clientId || 0);
 
-      // Built-in known CDSC IDs for instant lookup + live /capital/ lookup
+      // Built-in known CDSC IDs for instant lookup without hitting CDSC rate limits
       const knownCdscIds = {
         "16300": 168,
         "15200": 156,
@@ -533,27 +526,30 @@ const requestHandler = async (req, res) => {
         "16500": 146
       };
 
-      try {
-        const capCtrl = new AbortController();
-        const capTimer = setTimeout(() => capCtrl.abort(), 6000);
-        const capRes = await fetch("https://webbackend.cdsc.com.np/api/meroShare/capital/", {
-          headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
-          signal: capCtrl.signal
-        });
-        clearTimeout(capTimer);
-        if (capRes.ok) {
-          const capList = await capRes.json();
-          if (Array.isArray(capList)) {
-            const found = capList.find(c => String(c.code) === dpFiveDigit || String(c.code) === dpId);
-            if (found && found.id) {
-              resolvedClientId = Number(found.id);
-            }
-          }
-        }
-      } catch (_) {}
-
       if (!resolvedClientId && knownCdscIds[dpFiveDigit]) {
         resolvedClientId = knownCdscIds[dpFiveDigit];
+      }
+
+      if (!resolvedClientId) {
+        try {
+          const capCtrl = new AbortController();
+          const capTimer = setTimeout(() => capCtrl.abort(), 4500);
+          const capRes = await fetch("https://webbackend.cdsc.com.np/api/meroShare/capital/", {
+            headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+            signal: capCtrl.signal
+          });
+          clearTimeout(capTimer);
+          if (capRes.ok) {
+            const capList = await capRes.json();
+            if (Array.isArray(capList)) {
+              global.__cachedCdscCapitals = capList;
+              const found = capList.find(c => String(c.code) === dpFiveDigit || String(c.code) === dpId);
+              if (found && found.id) {
+                resolvedClientId = Number(found.id);
+              }
+            }
+          }
+        } catch (_) {}
       }
 
       if (!resolvedClientId) {
@@ -733,7 +729,7 @@ const requestHandler = async (req, res) => {
         }
       } catch (_) {}
 
-      // 7. Fetch Per-Scrip Purchase Source WACC (/api/myPurchase/view/ & /api/myPurchase/search/wacc/) + Holding Days (/api/myHoldings/summary/)
+      // 7. Fetch Per-Scrip Purchase Source WACC ONLY for scrips missing from waccReportMap (prevents 66-request CDSC rate-limiting burst)
       const allPortfolioSyms = [...new Set([
         ...cdscPortfolioItems.map(i => String(i.script || "").toUpperCase().trim()),
         ...mySharesList.map(i => String(i.script || "").toUpperCase().trim())
@@ -741,35 +737,32 @@ const requestHandler = async (req, res) => {
 
       const perScripWaccDetails = {};
       const perScripHoldingSummary = {};
+      const missingWaccSyms = allPortfolioSyms.filter(sym => !waccReportMap[sym]);
 
-      await Promise.all(
-        allPortfolioSyms.map(async (sym) => {
-          // A) Check /api/myPurchase/view/ if not already in waccReportMap
-          if (!waccReportMap[sym]) {
-            try {
-              const viewRes = await fetch("https://webbackend.cdsc.com.np/api/myPurchase/view/", {
-                method: "POST",
-                headers: cdscHeaders,
-                body: JSON.stringify({ demat: boid, scrip: sym })
-              });
-              if (viewRes.ok) {
-                const vData = (await viewRes.json()) || {};
-                const avgRate = Number(vData.averageBuyRate || vData.waccSummaryResponse?.averageBuyRate || 0);
-                if (avgRate > 0) {
-                  waccReportMap[sym] = {
-                    scrip: sym,
-                    totalQuantity: Number(vData.totalQuantity || vData.waccSummaryResponse?.totalQuantity || 0),
-                    averageBuyRate: avgRate,
-                    totalCost: Number(vData.totalCost || vData.waccSummaryResponse?.totalCost || 0),
-                    lastModifiedDate: vData.lastModifiedDate || null,
-                    waccSource: "CDSC My Purchase Summary"
-                  };
-                }
-              }
-            } catch (_) {}
+      for (const sym of missingWaccSyms.slice(0, 8)) {
+        try {
+          const viewRes = await fetch("https://webbackend.cdsc.com.np/api/myPurchase/view/", {
+            method: "POST",
+            headers: cdscHeaders,
+            body: JSON.stringify({ demat: boid, scrip: sym })
+          });
+          if (viewRes.ok) {
+            const vData = (await viewRes.json()) || {};
+            const avgRate = Number(vData.averageBuyRate || vData.waccSummaryResponse?.averageBuyRate || 0);
+            if (avgRate > 0) {
+              waccReportMap[sym] = {
+                scrip: sym,
+                totalQuantity: Number(vData.totalQuantity || vData.waccSummaryResponse?.totalQuantity || 0),
+                averageBuyRate: avgRate,
+                totalCost: Number(vData.totalCost || vData.waccSummaryResponse?.totalCost || 0),
+                lastModifiedDate: vData.lastModifiedDate || null,
+                waccSource: "CDSC My Purchase Summary"
+              };
+            }
           }
+        } catch (_) {}
 
-          // B) Check /api/myPurchase/search/wacc/ for purchase lots & summary
+        if (!waccReportMap[sym]) {
           try {
             const searchWaccRes = await fetch("https://webbackend.cdsc.com.np/api/myPurchase/search/wacc/", {
               method: "POST",
@@ -790,7 +783,7 @@ const requestHandler = async (req, res) => {
                   purchaseSource: l.purchaseSource || "Demat Credit"
                 }))
               };
-              if (!waccReportMap[sym] && Number(summary.averageBuyRate) > 0) {
+              if (Number(summary.averageBuyRate) > 0) {
                 waccReportMap[sym] = {
                   scrip: sym,
                   totalQuantity: Number(summary.totalQuantity || 0),
@@ -799,8 +792,7 @@ const requestHandler = async (req, res) => {
                   lastModifiedDate: null,
                   waccSource: "CDSC Purchase WACC Summary"
                 };
-              } else if (!waccReportMap[sym] && lots.length > 0) {
-                // Compute exact weighted average cost across CDSC purchase source lots
+              } else if (lots.length > 0) {
                 let sumQty = 0;
                 let sumCost = 0;
                 for (const lot of lots) {
@@ -824,30 +816,8 @@ const requestHandler = async (req, res) => {
               }
             }
           } catch (_) {}
-
-          // C) Check /api/myHoldings/summary/ for Long-Term (>365d) vs Short-Term (<365d) CGT holding status
-          try {
-            const holdSumRes = await fetch("https://webbackend.cdsc.com.np/api/myHoldings/summary/", {
-              method: "POST",
-              headers: cdscHeaders,
-              body: JSON.stringify({ demat: boid, scrip: sym })
-            });
-            if (holdSumRes.ok) {
-              const hsData = (await holdSumRes.json()) || {};
-              const hInfo = hsData.data || hsData;
-              if (hInfo && (Number(hInfo.totalQty) > 0 || Number(hInfo.userLtQty) > 0 || Number(hInfo.userStQty) > 0)) {
-                perScripHoldingSummary[sym] = {
-                  userLtQty: Number(hInfo.userLtQty || 0),
-                  userStQty: Number(hInfo.userStQty || 0),
-                  mergeQty: Number(hInfo.mergeQty || 0),
-                  totalQty: Number(hInfo.totalQty || 0),
-                  updatedDate: hInfo.updatedDate || null
-                };
-              }
-            }
-          } catch (_) {}
-        })
-      );
+        }
+      }
 
       // 8. Fetch Recent Demat Transactions (/api/meroShareView/myTransaction/)
       let recentTransactions = [];

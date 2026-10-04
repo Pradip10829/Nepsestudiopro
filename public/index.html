@@ -2060,6 +2060,7 @@
                   <!-- Interactive Indicator Overlay Toggles -->
                   <div class="tv-toolbar-group" title="Click any button to show or hide lines on the chart">
                     <button type="button" class="tv-pill-btn active" id="ovBtn-ladder" onclick="toggleChartOverlay('ladder')" title="Shows Buy Price, Support Floor, Profit Targets & Stop-Loss lines">Trade Ladder</button>
+                    <button type="button" class="tv-pill-btn active" id="ovBtn-smc" onclick="toggleChartOverlay('smc')" title="Smart Money Concepts: Bullish/Bearish Order Blocks (OB), Fair Value Gaps (FVG), BOS/CHoCH & 50% Equilibrium">SMC (OB / FVG / BOS)</button>
                     <button type="button" class="tv-pill-btn active" id="ovBtn-ema20" onclick="toggleChartOverlay('ema20')" title="20-Day Average Price (Blue Line) — Above this line means Uptrend">EMA 20 (20D Avg)</button>
                     <button type="button" class="tv-pill-btn" id="ovBtn-sma50" onclick="toggleChartOverlay('sma50')" title="50-Day Average Price (Gold Line)">SMA 50</button>
                     <button type="button" class="tv-pill-btn active" id="ovBtn-supertrend" onclick="toggleChartOverlay('supertrend')" title="Safety Trend Line: Green = Uptrend, Red = Downtrend">SuperTrend</button>
@@ -2125,6 +2126,18 @@
                 </div>
                 <div class="exec-panel-body" id="sellPanelBody"></div>
               </div>
+            </div>
+
+            <!-- PANEL B2: INSTITUTIONAL SMART MONEY CONCEPTS (SMC / ICT) BLUEPRINT -->
+            <div class="card" id="smcBlueprintSection" style="border:1.5px solid rgba(56,189,248,0.38); background:linear-gradient(135deg, rgba(16,185,129,0.06), rgba(56,189,248,0.04));">
+              <div class="card-header" style="padding:11px 16px; flex-wrap:wrap; gap:8px;">
+                <div class="card-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span>🏦 Smart Money Concepts (SMC) Institutional Blueprint</span>
+                  <span class="badge badge-green" id="smcVerdictBadge">SMC Analysis</span>
+                </div>
+                <span class="mono text-muted" id="smcRangeSummaryBadge" style="font-size:11px;">BOS / CHoCH • Order Blocks • FVG • Liquidity • Premium/Discount</span>
+              </div>
+              <div class="card-body" id="smcBlueprintBody" style="padding:12px 16px;"></div>
             </div>
 
             <!-- NEXT PAGE HELPER BUTTON AT BOTTOM OF PAGE 1 -->
@@ -2268,6 +2281,7 @@
               <div class="card-header">
                 <span class="card-title" style="font-size:13px;">WhatsApp Bot Studio</span>
                 <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                  <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!smc')">!smc</button>
                   <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!advisor')">!advisor</button>
                   <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!immediate')">!immediate</button>
                   <button class="btn btn-soft-red" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!immediatesell')">!sell</button>
@@ -2819,6 +2833,7 @@
     let chartTimeframeDays = 60;
     let chartOverlays = {
       ladder: true,
+      smc: true,
       ema20: true,
       sma50: false,
       supertrend: true,
@@ -2877,6 +2892,7 @@
       const chartSec = document.getElementById('chartPlayerSection');
       const ovSec = document.getElementById('overviewBentoSection');
       const exSec = document.getElementById('execMatrixSection');
+      const smcSec = document.getElementById('smcBlueprintSection');
       const nextStepBar = document.getElementById('page1NextStepBar');
       const p2Wrap = document.getElementById('page2FundamentalsWrap');
       const upNextWrap = document.getElementById('upNextCardWrap');
@@ -2894,6 +2910,7 @@
         if (chartSec) chartSec.style.display = 'block';
         if (ovSec) ovSec.style.display = 'flex';
         if (exSec) exSec.style.display = 'grid';
+        if (smcSec) smcSec.style.display = 'block';
         if (nextStepBar) nextStepBar.style.display = 'flex';
         if (p2Wrap) p2Wrap.style.display = 'none';
         if (upNextWrap) upNextWrap.style.display = 'block';
@@ -2913,6 +2930,7 @@
         if (chartSec) chartSec.style.display = 'none';
         if (ovSec) ovSec.style.display = 'none';
         if (exSec) exSec.style.display = 'none';
+        if (smcSec) smcSec.style.display = 'none';
         if (nextStepBar) nextStepBar.style.display = 'none';
         if (p2Wrap) p2Wrap.style.display = 'flex';
         if (upNextWrap) upNextWrap.style.display = 'block';
@@ -2956,6 +2974,7 @@
         if (chartSec) chartSec.style.display = 'block';
         if (ovSec) ovSec.style.display = 'flex';
         if (exSec) exSec.style.display = 'grid';
+        if (smcSec) smcSec.style.display = 'block';
         if (nextStepBar) nextStepBar.style.display = 'none';
         if (p2Wrap) p2Wrap.style.display = 'flex';
         if (upNextWrap) upNextWrap.style.display = 'block';
@@ -4346,6 +4365,62 @@
         ${realFloorsheetHtml}
       `;
 
+      // Render SMC (Smart Money Concepts) Institutional Blueprint Panel
+      const smc = s.smc || null;
+      const smcBodyEl = document.getElementById('smcBlueprintBody');
+      const smcBadgeEl = document.getElementById('smcVerdictBadge');
+      const smcRangeEl = document.getElementById('smcRangeSummaryBadge');
+      if (smcBodyEl && smc) {
+        const isBullSmc = String(smc.smcVerdict || '').includes('🟢');
+        const isBearSmc = String(smc.smcVerdict || '').includes('🔴');
+        if (smcBadgeEl) {
+          smcBadgeEl.textContent = smc.smcVerdict.replace(/[🐋🟢🔴🟡🚨]/g, '').trim();
+          smcBadgeEl.className = `badge ${isBullSmc ? 'badge-green' : isBearSmc ? 'badge-red' : 'badge-neutral'}`;
+        }
+        if (smcRangeEl) {
+          smcRangeEl.textContent = `50% Equilibrium: Rs ${fmtNum(smc.equilibrium50, 1)} • OTE (61.8%–78.6%): Rs ${fmtNum(smc.oteLow, 1)}–${fmtNum(smc.oteHigh, 1)}`;
+        }
+        const rngPct = Math.max(2, Math.min(98, Number(smc.rangePct || 50)));
+        smcBodyEl.innerHTML = `
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(205px, 1fr)); gap:10px; margin-bottom:10px;">
+            <div style="background:var(--bg-elevated); border:1px solid var(--border-strong); border-left:4px solid ${smc.structureType.includes('BULLISH') ? 'var(--green-main)' : smc.structureType.includes('BEARISH') ? 'var(--red-main)' : 'var(--accent-blue)'}; border-radius:10px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:800; color:var(--text-secondary); text-transform:uppercase;">1. MARKET STRUCTURE (BOS / CHoCH)</div>
+              <div class="mono" style="font-size:13.5px; font-weight:800; color:var(--text-main); margin:3px 0;">${smc.structureType}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">${smc.structureDesc}</div>
+            </div>
+
+            <div style="background:var(--bg-elevated); border:1px solid var(--green-border); border-left:4px solid var(--green-main); border-radius:10px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:800; color:var(--green-dark); text-transform:uppercase;">2. BULLISH ORDER BLOCK (DEMAND OB)</div>
+              <div class="mono text-green" style="font-size:15.5px; font-weight:800; margin:3px 0;">${smc.bullishOB?.zoneText || tp.demandOrderBlock}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;"><strong>${smc.bullishOB?.status || 'Institutional Buy Zone'}</strong> • Midpoint: Rs ${fmtNum(smc.bullishOB?.midpoint, 1)}</div>
+            </div>
+
+            <div style="background:var(--bg-elevated); border:1px solid var(--red-border); border-left:4px solid var(--red-main); border-radius:10px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:800; color:var(--red-dark); text-transform:uppercase;">3. BEARISH ORDER BLOCK (SUPPLY OB)</div>
+              <div class="mono text-red" style="font-size:15.5px; font-weight:800; margin:3px 0;">${smc.bearishOB?.zoneText || tp.supplyOrderBlock}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;"><strong>${smc.bearishOB?.status || 'Institutional Supply Zone'}</strong> • Midpoint: Rs ${fmtNum(smc.bearishOB?.midpoint, 1)}</div>
+            </div>
+
+            <div style="background:var(--bg-elevated); border:1px solid var(--border-strong); border-left:4px solid var(--accent-blue); border-radius:10px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:800; color:var(--accent-blue); text-transform:uppercase;">4. FAIR VALUE GAP (FVG) &amp; LIQUIDITY</div>
+              <div class="mono" style="font-size:12.5px; font-weight:800; color:var(--text-main); margin:3px 0;">${smc.activeFVGText}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;"><strong>Liquidity:</strong> ${smc.liquidityStatus}</div>
+            </div>
+
+            <div style="background:var(--bg-elevated); border:1px solid var(--border-strong); border-left:4px solid ${smc.isDiscount ? 'var(--green-main)' : 'var(--amber-main)'}; border-radius:10px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:800; color:${smc.isDiscount ? 'var(--green-dark)' : 'var(--amber-main)'}; text-transform:uppercase;">5. PREMIUM vs. DISCOUNT &amp; OTE</div>
+              <div class="mono" style="font-size:12.5px; font-weight:800; color:var(--text-main); margin:3px 0;">${smc.dealingZone}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">OTE Buy Pocket (61.8%–78.6%): <strong>Rs ${fmtNum(smc.oteLow, 1)} – Rs ${fmtNum(smc.oteHigh, 1)}</strong></div>
+            </div>
+          </div>
+
+          <div style="padding:8px 12px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; font-size:11.5px; color:var(--text-secondary); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px;">
+            <div><strong style="color:var(--text-main);">🎯 SMC Institutional Playbook:</strong> ${smc.smcPlaybook}</div>
+            <div class="mono" style="font-size:11px; color:var(--accent-blue);">Dealing Range Position: <strong>${rngPct}%</strong> (0% SSL Rs ${fmtNum(smc.rangeLow, 0)} ── 50% Eq Rs ${fmtNum(smc.equilibrium50, 0)} ── 100% BSL Rs ${fmtNum(smc.rangeHigh, 0)})</div>
+          </div>
+        `;
+      }
+
       document.getElementById('selScoreSummary').textContent =
         `Score: ${cg.totalScore || s.quantScore}/100 • LT: ${lt.longTermScore || '--'}/100 • R:R 1:${cg.netRiskRewardRatio || '1.9'}`;
 
@@ -4931,6 +5006,70 @@
         const yBot = Math.max(padT, Math.min(padT + pricePlotH, yOf(Math.min(supportPrice, buyPrice))));
         ctx.fillStyle = isDark ? 'rgba(16, 185, 129, 0.11)' : 'rgba(16, 185, 129, 0.09)';
         ctx.fillRect(padL, yTop, plotW, Math.max(5, yBot - yTop));
+      }
+
+      // 1C. Smart Money Concepts (SMC) Order Blocks (OB), Fair Value Gaps (FVG) & 50% Equilibrium Overlay
+      if (chartOverlays.smc && sig?.smc) {
+        const smcObj = sig.smc;
+        ctx.save();
+        ctx.font = 'bold 9px JetBrains Mono, monospace';
+
+        // Bullish Demand Order Block (Green Shaded Box)
+        if (smcObj.bullishOB && smcObj.bullishOB.high >= minP && smcObj.bullishOB.low <= maxP) {
+          const yObTop = Math.max(padT, Math.min(padT + pricePlotH, yOf(smcObj.bullishOB.high)));
+          const yObBot = Math.max(padT, Math.min(padT + pricePlotH, yOf(smcObj.bullishOB.low)));
+          const obH = Math.max(6, yObBot - yObTop);
+          ctx.fillStyle = isDark ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.12)';
+          ctx.fillRect(padL + plotW * 0.25, yObTop, plotW * 0.75, obH);
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.55)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 3]);
+          ctx.strokeRect(padL + plotW * 0.25, yObTop, plotW * 0.75, obH);
+          ctx.fillStyle = '#10b981';
+          ctx.fillText(`BULL OB (${smcObj.bullishOB.zoneText})`, padL + plotW * 0.26, Math.max(padT + 10, yObTop + 10));
+        }
+
+        // Bearish Supply Order Block (Red Shaded Box)
+        if (smcObj.bearishOB && smcObj.bearishOB.high >= minP && smcObj.bearishOB.low <= maxP) {
+          const yObTop = Math.max(padT, Math.min(padT + pricePlotH, yOf(smcObj.bearishOB.high)));
+          const yObBot = Math.max(padT, Math.min(padT + pricePlotH, yOf(smcObj.bearishOB.low)));
+          const obH = Math.max(6, yObBot - yObTop);
+          ctx.fillStyle = isDark ? 'rgba(244, 63, 94, 0.13)' : 'rgba(244, 63, 94, 0.11)';
+          ctx.fillRect(padL + plotW * 0.25, yObTop, plotW * 0.75, obH);
+          ctx.strokeStyle = 'rgba(244, 63, 94, 0.55)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 3]);
+          ctx.strokeRect(padL + plotW * 0.25, yObTop, plotW * 0.75, obH);
+          ctx.fillStyle = '#f43f5e';
+          ctx.fillText(`BEAR OB (${smcObj.bearishOB.zoneText})`, padL + plotW * 0.26, Math.max(padT + 10, yObTop + 10));
+        }
+
+        // Unfilled Fair Value Gap (FVG Imbalance Zone)
+        const activeFvg = smcObj.bullishFVG || smcObj.bearishFVG;
+        if (activeFvg && activeFvg.top >= minP && activeFvg.bottom <= maxP) {
+          const yFvgTop = Math.max(padT, Math.min(padT + pricePlotH, yOf(activeFvg.top)));
+          const yFvgBot = Math.max(padT, Math.min(padT + pricePlotH, yOf(activeFvg.bottom)));
+          const fvgH = Math.max(5, yFvgBot - yFvgTop);
+          ctx.fillStyle = isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(56, 189, 248, 0.12)';
+          ctx.fillRect(padL + plotW * 0.45, yFvgTop, plotW * 0.55, fvgH);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillText(`${activeFvg.type}: ${activeFvg.zoneText}`, padL + plotW * 0.46, Math.max(padT + 10, yFvgTop + 9));
+        }
+
+        // 50% Equilibrium Line (Premium vs Discount Divider)
+        if (smcObj.equilibrium50 >= minP && smcObj.equilibrium50 <= maxP) {
+          const yEq = yOf(smcObj.equilibrium50);
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.55)';
+          ctx.lineWidth = 1.1;
+          ctx.setLineDash([2, 4]);
+          ctx.beginPath();
+          ctx.moveTo(padL, yEq);
+          ctx.lineTo(W - padR, yEq);
+          ctx.stroke();
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillText(`SMC EQ 50%: Rs ${fmtNum(smcObj.equilibrium50, 0)} (${smcObj.structureTag})`, padL + 6, Math.max(padT + 10, yEq - 4));
+        }
+        ctx.restore();
       }
 
       // 2. Volume Histogram
