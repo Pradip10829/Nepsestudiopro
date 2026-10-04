@@ -4,10 +4,13 @@ node_modules/
 # Private WhatsApp Bot Session Keys (keep secret!)
 auth_info_baileys/
 
-# Personal MeroShare Portfolio & Local Runtime Cache (keep private!)
-data/*.json
+# Private CDSC Session Token & WhatsApp State (keep private!)
+data/meroshare_session_cache.json
+data/state.json
 
 # macOS & Environment Files
 .DS_Store
 .env
 *.log
+.vercel/
+

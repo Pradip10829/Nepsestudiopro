@@ -12,6 +12,10 @@ const PUBLIC_DIR = path.join(__dirname, "..", "public");
 const DATA_DIR = path.join(__dirname, "..", "data");
 const MEROSHARE_MERO_FILE = path.join(DATA_DIR, "meroshare_mero_portfolio.json");
 const MEROSHARE_SESSION_FILE = path.join(DATA_DIR, "meroshare_session_cache.json");
+const TMP_MEROSHARE_MERO_FILE = "/tmp/meroshare_mero_portfolio.json";
+const TMP_MEROSHARE_SESSION_FILE = "/tmp/meroshare_session_cache.json";
+
+let memoryMeroPortfolio = null;
 
 // Live CDSC session state (also cached locally in gitignored data/meroshare_session_cache.json so server restarts never disconnect you)
 let activeCdscSession = {
@@ -29,8 +33,11 @@ let activeCdscSession = {
 
 function loadCdscSessionCache() {
   try {
-    if (fs.existsSync(MEROSHARE_SESSION_FILE)) {
-      const raw = JSON.parse(fs.readFileSync(MEROSHARE_SESSION_FILE, "utf8"));
+    const fileToRead = fs.existsSync(TMP_MEROSHARE_SESSION_FILE)
+      ? TMP_MEROSHARE_SESSION_FILE
+      : MEROSHARE_SESSION_FILE;
+    if (fs.existsSync(fileToRead)) {
+      const raw = JSON.parse(fs.readFileSync(fileToRead, "utf8"));
       if (raw && typeof raw === "object") {
         activeCdscSession = { ...activeCdscSession, ...raw };
       }
@@ -42,7 +49,11 @@ function saveCdscSessionCache() {
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     fs.writeFileSync(MEROSHARE_SESSION_FILE, JSON.stringify(activeCdscSession, null, 2), "utf8");
-  } catch (_) {}
+  } catch (_) {
+    try {
+      fs.writeFileSync(TMP_MEROSHARE_SESSION_FILE, JSON.stringify(activeCdscSession, null, 2), "utf8");
+    } catch (__) {}
+  }
 }
 
 loadCdscSessionCache();
@@ -85,12 +96,13 @@ function getDefaultMeroPortfolio() {
 }
 
 function loadMeroPortfolio() {
+  if (memoryMeroPortfolio) return memoryMeroPortfolio;
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (fs.existsSync(MEROSHARE_MERO_FILE)) {
-      const raw = JSON.parse(fs.readFileSync(MEROSHARE_MERO_FILE, "utf8"));
+    const candidateFile = fs.existsSync(TMP_MEROSHARE_MERO_FILE)
+      ? TMP_MEROSHARE_MERO_FILE
+      : MEROSHARE_MERO_FILE;
+    if (fs.existsSync(candidateFile)) {
+      const raw = JSON.parse(fs.readFileSync(candidateFile, "utf8"));
       const rawHoldings = raw.holdings && typeof raw.holdings === "object" ? raw.holdings : {};
       const cleanedHoldings = {};
       let removedFake = false;
@@ -118,6 +130,7 @@ function loadMeroPortfolio() {
         recentTransactions: Array.isArray(raw.recentTransactions) ? raw.recentTransactions : [],
         holdings: cleanedHoldings
       };
+      memoryMeroPortfolio = result;
       if (removedFake) {
         saveMeroPortfolio(result);
       }
@@ -128,12 +141,17 @@ function loadMeroPortfolio() {
 }
 
 function saveMeroPortfolio(data) {
+  memoryMeroPortfolio = data;
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     fs.writeFileSync(MEROSHARE_MERO_FILE, JSON.stringify(data, null, 2), "utf8");
-  } catch (_) {}
+  } catch (_) {
+    try {
+      fs.writeFileSync(TMP_MEROSHARE_MERO_FILE, JSON.stringify(data, null, 2), "utf8");
+    } catch (__) {}
+  }
   return data;
 }
 
@@ -184,6 +202,14 @@ function sendJson(res, statusCode, payload) {
 }
 
 function parseBody(req) {
+  if (req.body && typeof req.body === "object") {
+    return Promise.resolve(req.body);
+  }
+  if (typeof req.body === "string" && req.body.length > 0) {
+    try {
+      return Promise.resolve(JSON.parse(req.body));
+    } catch (_) {}
+  }
   return new Promise((resolve) => {
     let body = "";
     req.on("data", (chunk) => {
@@ -199,7 +225,7 @@ function parseBody(req) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
+const requestHandler = async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
 
@@ -1361,47 +1387,54 @@ const server = http.createServer(async (req, res) => {
 
   res.writeHead(404, { "Content-Type": "text/plain" });
   res.end("Not Found");
-});
+};
 
-// Background Price Alert Checker (every 60 seconds)
-setInterval(async () => {
-  try {
-    const state = getAppState();
-    let changed = false;
-    for (const alert of state.alerts) {
-      if (!alert.active) continue;
-      const q = await nepseProvider.getQuote(alert.symbol);
-      if (!q) continue;
+const server = http.createServer(requestHandler);
 
-      const triggered =
-        (alert.condition === "ABOVE" && q.ltp >= alert.targetPrice) ||
-        (alert.condition === "BELOW" && q.ltp <= alert.targetPrice);
+if (!process.env.VERCEL && require.main === module) {
+  // Background Price Alert Checker (every 60 seconds)
+  setInterval(async () => {
+    try {
+      const state = getAppState();
+      let changed = false;
+      for (const alert of state.alerts) {
+        if (!alert.active) continue;
+        const q = await nepseProvider.getQuote(alert.symbol);
+        if (!q) continue;
 
-      if (triggered) {
-        alert.active = false;
-        alert.triggeredAt = new Date().toISOString();
-        changed = true;
-        const alertMsg =
-          `🚨 *NEPSE PRICE ALERT TRIGGERED!* 🚨\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `• *Stock:* ${q.symbol} (${q.companyName})\n` +
-          `• *Condition:* ${alert.condition} NPR ${alert.targetPrice}\n` +
-          `• *Current LTP:* *NPR ${q.ltp}* (${q.percentageChange >= 0 ? "+" : ""}${q.percentageChange}%)\n\n` +
-          `Reply *!signal ${q.symbol}* for updated Buy/Sell targets.`;
+        const triggered =
+          (alert.condition === "ABOVE" && q.ltp >= alert.targetPrice) ||
+          (alert.condition === "BELOW" && q.ltp <= alert.targetPrice);
 
-        if (alert.user && alert.user.includes("@")) {
-          await whatsappClient.sendDirectMessage(alert.user, alertMsg);
+        if (triggered) {
+          alert.active = false;
+          alert.triggeredAt = new Date().toISOString();
+          changed = true;
+          const alertMsg =
+            `🚨 *NEPSE PRICE ALERT TRIGGERED!* 🚨\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `• *Stock:* ${q.symbol} (${q.companyName})\n` +
+            `• *Condition:* ${alert.condition} NPR ${alert.targetPrice}\n` +
+            `• *Current LTP:* *NPR ${q.ltp}* (${q.percentageChange >= 0 ? "+" : ""}${q.percentageChange}%)\n\n` +
+            `Reply *!signal ${q.symbol}* for updated Buy/Sell targets.`;
+
+          if (alert.user && alert.user.includes("@")) {
+            await whatsappClient.sendDirectMessage(alert.user, alertMsg);
+          }
         }
       }
-    }
-    if (changed) saveState(state);
-  } catch (_) {}
-}, 60000);
+      if (changed) saveState(state);
+    } catch (_) {}
+  }, 60000);
 
-server.listen(PORT, () => {
-  console.log(`\n======================================================`);
-  console.log(`🇳🇵 NEPSE QUANT PRO WHATSAPP BOT & SIGNAL SERVER RUNNING!`);
-  console.log(`🌐 Dashboard & WhatsApp Simulator: http://localhost:${PORT}`);
-  console.log(`======================================================\n`);
-  whatsappClient.startWhatsApp();
-});
+  server.listen(PORT, () => {
+    console.log(`\n======================================================`);
+    console.log(`🇳🇵 NEPSE QUANT PRO WHATSAPP BOT & SIGNAL SERVER RUNNING!`);
+    console.log(`🌐 Dashboard & WhatsApp Simulator: http://localhost:${PORT}`);
+    console.log(`======================================================\n`);
+    whatsappClient.startWhatsApp();
+  });
+}
+
+module.exports = requestHandler;
+
