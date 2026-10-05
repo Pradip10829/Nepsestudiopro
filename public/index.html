@@ -159,13 +159,13 @@
     }
 
     /* ============================================================
-       1. GLASS COMMAND MASTHEAD (58px)
+       1. GLASS COMMAND MASTHEAD (48px COMPACT FIT)
        ============================================================ */
     .yt-masthead {
       position: sticky;
       top: 0;
       z-index: 140;
-      height: 58px;
+      min-height: 48px;
       background: var(--bg-glass);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
@@ -173,21 +173,22 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 18px;
-      gap: 14px;
+      padding: 4px 12px;
+      gap: 10px;
+      flex-wrap: nowrap;
     }
 
     .yt-masthead-left {
       display: flex;
       align-items: center;
-      gap: 12px;
-      min-width: 215px;
+      gap: 8px;
+      flex-shrink: 0;
     }
 
     .yt-icon-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 9px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
       border: 1px solid transparent;
       background: transparent;
       color: var(--text-secondary);
@@ -196,6 +197,7 @@
       align-items: center;
       justify-content: center;
       transition: all 0.15s ease;
+      flex-shrink: 0;
     }
 
     .yt-icon-btn:hover {
@@ -207,18 +209,19 @@
     .yt-logo {
       display: flex;
       align-items: center;
-      gap: 9px;
+      gap: 7px;
       text-decoration: none;
       color: var(--text-main);
       cursor: pointer;
       user-select: none;
+      white-space: nowrap;
     }
 
     .yt-logo-icon {
-      width: 30px;
-      height: 22px;
+      width: 26px;
+      height: 20px;
       background: linear-gradient(135deg, #ff1744, #d50000);
-      border-radius: 6px;
+      border-radius: 5px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -228,7 +231,7 @@
 
     .yt-logo-text {
       font-family: var(--font-display);
-      font-size: 17px;
+      font-size: 15.5px;
       font-weight: 800;
       letter-spacing: -0.03em;
       color: var(--text-main);
@@ -236,14 +239,14 @@
 
     .yt-logo-sup {
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 8.5px;
       font-weight: 700;
-      padding: 1.5px 5px;
+      padding: 1px 4px;
       border-radius: 4px;
       background: var(--bg-chip);
       color: var(--accent-blue);
       border: 1px solid var(--border-strong);
-      margin-left: 5px;
+      margin-left: 4px;
       vertical-align: middle;
       letter-spacing: 0.05em;
     }
@@ -251,10 +254,11 @@
     /* Center Spotlight Search Bar + Instant Autocomplete Palette */
     .yt-masthead-center {
       flex: 1;
-      max-width: 560px;
+      min-width: 170px;
+      max-width: 420px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       position: relative;
     }
 
@@ -262,21 +266,23 @@
       flex: 1;
       display: flex;
       align-items: center;
-      height: 38px;
+      height: 33px;
       position: relative;
+      min-width: 0;
     }
 
     .yt-search-input {
       flex: 1;
-      height: 38px;
-      padding: 0 72px 0 16px;
+      min-width: 0;
+      height: 33px;
+      padding: 0 54px 0 12px;
       background: var(--bg-input);
       border: 1px solid var(--border-strong);
       border-right: none;
       border-radius: 99px 0 0 99px;
       color: var(--text-main);
       font-family: var(--font-sans);
-      font-size: 12.5px;
+      font-size: 12px;
       outline: none;
       transition: all 0.15s ease;
     }
@@ -288,21 +294,21 @@
 
     .yt-kbd-hint {
       position: absolute;
-      right: 60px;
+      right: 46px;
       pointer-events: none;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 600;
       color: var(--text-muted);
       background: var(--bg-chip);
       border: 1px solid var(--border);
-      padding: 1px 6px;
-      border-radius: 5px;
+      padding: 1px 5px;
+      border-radius: 4px;
     }
 
     .yt-search-btn {
-      width: 50px;
-      height: 38px;
+      width: 40px;
+      height: 33px;
       background: var(--bg-chip);
       border: 1px solid var(--border-strong);
       border-radius: 0 99px 99px 0;
@@ -312,6 +318,7 @@
       align-items: center;
       justify-content: center;
       transition: all 0.15s;
+      flex-shrink: 0;
     }
 
     .yt-search-btn:hover {
@@ -322,9 +329,9 @@
     /* Spotlight Autocomplete Dropdown */
     .search-autocomplete {
       position: absolute;
-      top: 44px;
+      top: 38px;
       left: 0;
-      right: 46px;
+      right: 38px;
       background: var(--bg-card);
       border: 1px solid var(--border-strong);
       border-radius: 12px;
@@ -339,7 +346,7 @@
     }
 
     .ac-item {
-      padding: 9px 14px;
+      padding: 8px 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -361,23 +368,24 @@
     .yt-masthead-right {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      flex-shrink: 0;
     }
 
     .metric-pill {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      padding: 5px 11px;
+      padding: 3.5px 9px;
       border-radius: 99px;
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      font-size: 12px;
+      gap: 5px;
+      font-size: 11.5px;
       white-space: nowrap;
     }
 
     .metric-pill .lbl {
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
@@ -387,7 +395,7 @@
     .metric-pill .val {
       font-family: var(--font-mono);
       font-weight: 700;
-      font-size: 12.5px;
+      font-size: 11.5px;
       color: var(--text-main);
     }
 
@@ -396,18 +404,21 @@
        ============================================================ */
     .yt-app-shell {
       display: flex;
-      min-height: calc(100vh - 58px);
+      min-height: calc(100vh - 48px);
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: clip;
     }
 
     .yt-sidebar {
-      width: 224px;
+      width: 186px;
       flex-shrink: 0;
       background: var(--bg-page);
       border-right: 1px solid var(--border);
-      padding: 12px 10px;
+      padding: 8px 7px;
       position: sticky;
-      top: 58px;
-      height: calc(100vh - 58px);
+      top: 48px;
+      height: calc(100vh - 48px);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -416,8 +427,8 @@
     }
 
     .yt-sidebar.collapsed {
-      width: 68px;
-      padding: 12px 6px;
+      width: 54px;
+      padding: 8px 4px;
     }
 
     .yt-sidebar.collapsed .yt-nav-label,
@@ -428,18 +439,18 @@
 
     .yt-sidebar.collapsed .yt-nav-item {
       justify-content: center;
-      padding: 10px 4px;
+      padding: 8px 4px;
     }
 
     .yt-nav-item {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 8.5px 12px;
-      border-radius: 9px;
+      gap: 9px;
+      padding: 7px 9px;
+      border-radius: 8px;
       color: var(--text-secondary);
       text-decoration: none;
-      font-size: 12.5px;
+      font-size: 11.5px;
       font-weight: 600;
       cursor: pointer;
       border: 1px solid transparent;
@@ -471,16 +482,16 @@
     .yt-sidebar-divider {
       height: 1px;
       background: var(--border);
-      margin: 8px 4px;
+      margin: 6px 4px;
     }
 
     .yt-sidebar-heading {
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--text-muted);
-      padding: 6px 12px 3px;
+      padding: 4px 9px 2px;
     }
 
     .yt-main-content {
@@ -495,17 +506,17 @@
        ============================================================ */
     .yt-chips-bar {
       position: sticky;
-      top: 58px;
+      top: 48px;
       z-index: 90;
       background: var(--bg-glass);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
-      padding: 9px 20px;
+      padding: 6px 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 8px;
       overflow-x: auto;
       white-space: nowrap;
     }
@@ -513,22 +524,22 @@
     .quick-tabs {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .tab-btn {
       font-family: var(--font-sans);
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 600;
-      padding: 6px 12px;
-      border-radius: 8px;
+      padding: 4.5px 9px;
+      border-radius: 7px;
       border: 1px solid var(--border);
       background: var(--bg-chip);
       color: var(--text-secondary);
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       transition: all 0.15s ease;
       white-space: nowrap;
     }
@@ -560,8 +571,8 @@
 
     .tab-count {
       font-family: var(--font-mono);
-      font-size: 10.5px;
-      padding: 1px 6px;
+      font-size: 10px;
+      padding: 0.5px 5px;
       border-radius: 99px;
       background: rgba(148, 163, 184, 0.18);
     }
@@ -576,7 +587,7 @@
     .subindex-bar {
       background: var(--bg-subtle);
       border-bottom: 1px solid var(--border);
-      padding: 6px 20px;
+      padding: 4px 12px;
       overflow-x: auto;
       white-space: nowrap;
     }
@@ -584,8 +595,8 @@
     .subindex-inner {
       display: flex;
       align-items: center;
-      gap: 14px;
-      font-size: 11.5px;
+      gap: 10px;
+      font-size: 11px;
     }
 
     .subindex-item {
@@ -594,37 +605,64 @@
       gap: 5px;
       font-weight: 600;
       color: var(--text-secondary);
-      padding: 2px 8px;
-      border-radius: 6px;
+      padding: 1.5px 7px;
+      border-radius: 5px;
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid var(--border);
     }
 
     /* Main Workspace Container */
     .container {
-      max-width: 1760px;
+      max-width: 100%;
       width: 100%;
-      margin: 16px auto 56px;
-      padding: 0 20px;
+      margin: 10px auto 36px;
+      padding: 0 12px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 10px;
     }
 
     /* ============================================================
-       4. WATCH-PAGE 2-COLUMN BENTO STAGE
+       4. WATCH-PAGE 2-COLUMN BENTO STAGE (FITS LAPTOP & DESKTOP)
        ============================================================ */
     .yt-watch-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 405px;
-      gap: 18px;
+      grid-template-columns: minmax(0, 1fr) 315px;
+      gap: 12px;
       align-items: start;
     }
 
-    @media (max-width: 1340px) {
+    @media (max-width: 1400px) {
+      .yt-sidebar:not(.force-expanded) {
+        width: 54px;
+        padding: 8px 4px;
+      }
+      .yt-sidebar:not(.force-expanded) .yt-nav-label,
+      .yt-sidebar:not(.force-expanded) .yt-sidebar-heading,
+      .yt-sidebar:not(.force-expanded) .yt-sidebar-footer {
+        display: none;
+      }
+      .yt-sidebar:not(.force-expanded) .yt-nav-item {
+        justify-content: center;
+        padding: 8px 4px;
+      }
+      .yt-watch-grid {
+        grid-template-columns: minmax(0, 1fr) 295px;
+        gap: 10px;
+      }
+    }
+
+    @media (max-width: 1160px) {
+      .yt-masthead {
+        flex-wrap: wrap;
+        padding: 6px 10px;
+      }
       .yt-watch-grid {
         grid-template-columns: 1fr;
       }
+    }
+
+    @media (max-width: 820px) {
       .yt-sidebar {
         display: none;
       }
@@ -634,33 +672,33 @@
     .stock-hero-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 15px 18px;
+      border-radius: 12px;
+      padding: 10px 14px;
       box-shadow: var(--shadow-card);
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      gap: 10px;
     }
 
     .stock-hero-left {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 11px;
     }
 
     .score-ring-wrap {
       position: relative;
-      width: 54px;
-      height: 54px;
+      width: 46px;
+      height: 46px;
       flex-shrink: 0;
     }
 
     .score-ring-wrap svg {
       transform: rotate(-90deg);
-      width: 54px;
-      height: 54px;
+      width: 46px;
+      height: 46px;
     }
 
     .score-ring-label {
@@ -675,36 +713,36 @@
     }
 
     .score-ring-num {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 800;
       color: var(--text-main);
     }
 
     .score-ring-sub {
-      font-size: 7.5px;
+      font-size: 7px;
       font-weight: 700;
       color: var(--text-muted);
       text-transform: uppercase;
-      margin-top: 2px;
+      margin-top: 1px;
     }
 
     .stock-symbol {
       font-family: var(--font-display);
-      font-size: 23px;
+      font-size: 19px;
       font-weight: 800;
       color: var(--text-main);
       letter-spacing: -0.03em;
     }
 
     .stock-name {
-      font-size: 13.5px;
+      font-size: 12px;
       font-weight: 600;
       color: var(--text-secondary);
     }
 
     .stock-ltp {
       font-family: var(--font-mono);
-      font-size: 25px;
+      font-size: 21px;
       font-weight: 800;
       color: var(--text-main);
       letter-spacing: -0.02em;
@@ -712,9 +750,9 @@
 
     .stock-change {
       font-family: var(--font-mono);
-      font-size: 12.5px;
+      font-size: 11.5px;
       font-weight: 700;
-      padding: 4px 10px;
+      padding: 3px 8px;
       border-radius: 99px;
     }
 
@@ -740,40 +778,41 @@
     .yt-player-stage {
       background: var(--chart-bg);
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 12px;
       overflow: hidden;
       box-shadow: var(--shadow-card);
       position: relative;
     }
 
     .yt-player-header {
-      padding: 9px 14px;
+      padding: 6px 10px;
       background: var(--bg-card);
       border-bottom: 1px solid var(--border);
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      font-size: 12px;
+      gap: 6px;
+      font-size: 11px;
     }
 
     .tv-toolbar-group {
       display: inline-flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
       background: var(--bg-subtle);
-      padding: 3px;
-      border-radius: 8px;
+      padding: 2px;
+      border-radius: 7px;
       border: 1px solid var(--border);
     }
 
     .tv-pill-btn {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 700;
-      padding: 4px 9px;
-      border-radius: 6px;
+      padding: 3px 7px;
+      border-radius: 5px;
       border: none;
       background: transparent;
       color: var(--text-secondary);
@@ -792,22 +831,22 @@
     }
 
     .chart-hud-bar {
-      padding: 6px 14px;
+      padding: 4px 10px;
       background: var(--bg-subtle);
       border-bottom: 1px solid var(--border);
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 10.5px;
       color: var(--text-secondary);
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      gap: 8px;
     }
 
     canvas#priceChart {
       width: 100%;
-      height: 365px;
+      height: 315px;
       display: block;
       background: var(--chart-bg);
       cursor: crosshair;
@@ -816,21 +855,33 @@
     /* Segmented Workspace View Tabs & Multi-Page Navigation Bar */
     .top-page-nav {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 6px;
       background: var(--bg-card);
       border: 1px solid var(--border-strong);
-      border-radius: 14px;
-      padding: 8px;
+      border-radius: 11px;
+      padding: 5px;
       box-shadow: var(--shadow-card);
+    }
+
+    @media (max-width: 1100px) {
+      .top-page-nav {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .top-page-nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     .page-tab-btn {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 13px;
-      border-radius: 10px;
+      gap: 7px;
+      padding: 6px 9px;
+      border-radius: 8px;
       border: 1px solid transparent;
       background: var(--bg-elevated);
       color: var(--text-secondary);
@@ -838,6 +889,7 @@
       text-align: left;
       transition: all 0.16s ease;
       font-family: var(--font-sans);
+      min-width: 0;
     }
 
     .page-tab-btn:hover {
@@ -854,13 +906,13 @@
     }
 
     .page-step-num {
-      width: 26px;
-      height: 26px;
-      border-radius: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
       background: var(--bg-chip);
       color: var(--text-main);
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 800;
       display: inline-flex;
       align-items: center;
@@ -874,28 +926,40 @@
     }
 
     .page-tab-title {
-      font-size: 12.5px;
+      font-size: 11.5px;
       font-weight: 800;
       color: var(--text-main);
       display: block;
       line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .page-tab-sub {
-      font-size: 10.5px;
+      font-size: 9.5px;
       color: var(--text-secondary);
       display: block;
-      margin-top: 2px;
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* 3-Card Kid-Simple Action Guide (Primary Student Level Clarity) */
+    @media (max-width: 1440px) {
+      .page-tab-sub {
+        display: none;
+      }
+    }
+
+    /* 3-Card Kid-Simple Action Guide (Compact Fit) */
     .kid-simple-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
     }
 
-    @media (max-width: 1024px) {
+    @media (max-width: 900px) {
       .kid-simple-grid {
         grid-template-columns: 1fr;
       }
@@ -904,47 +968,48 @@
     .kid-card {
       background: var(--bg-card);
       border: 1.5px solid var(--border-strong);
-      border-radius: 14px;
-      padding: 14px 16px;
+      border-radius: 11px;
+      padding: 9px 12px;
       box-shadow: var(--shadow-card);
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 3px;
+      min-width: 0;
     }
 
     .kid-card-step {
-      font-size: 10.5px;
+      font-size: 9.5px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .kid-card-big {
       font-family: var(--font-display);
-      font-size: 18px;
+      font-size: 14.5px;
       font-weight: 800;
       color: var(--text-main);
-      line-height: 1.25;
+      line-height: 1.2;
     }
 
     .kid-card-desc {
-      font-size: 12.5px;
+      font-size: 11.5px;
       color: var(--text-secondary);
-      line-height: 1.5;
+      line-height: 1.38;
     }
 
     .jargon-helper-strip {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 8px;
       background: var(--bg-elevated);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px 14px;
-      font-size: 11.5px;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 11px;
       color: var(--text-secondary);
     }
 
@@ -952,21 +1017,21 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 6px;
+      border-radius: 10px;
+      padding: 5px;
     }
 
     .ws-seg-btn {
       flex: 1;
-      min-width: 135px;
+      min-width: 120px;
       font-family: var(--font-sans);
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 700;
-      padding: 8px 12px;
-      border-radius: 8px;
+      padding: 6px 10px;
+      border-radius: 7px;
       border: 1px solid transparent;
       background: transparent;
       color: var(--text-secondary);
@@ -991,20 +1056,20 @@
     .yt-description-box {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px 18px;
+      border-radius: 12px;
+      padding: 12px 14px;
       box-shadow: var(--shadow-card);
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
 
     /* Visual Horizontal Price Position Spectrum Bar */
     .spectrum-bar-wrap {
       background: var(--bg-elevated);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
+      border-radius: 9px;
+      padding: 10px 12px;
     }
 
     .spectrum-track {
@@ -1037,22 +1102,23 @@
     .yt-upnext-col {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 10px;
+      min-width: 0;
     }
 
     .yt-upnext-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 12px;
       overflow: hidden;
       box-shadow: var(--shadow-card);
     }
 
     .yt-upnext-item {
       display: flex;
-      gap: 11px;
-      padding: 8.5px 10px;
-      border-radius: 10px;
+      gap: 9px;
+      padding: 6.5px 8px;
+      border-radius: 8px;
       cursor: pointer;
       transition: all 0.14s ease;
       align-items: center;
@@ -1070,15 +1136,15 @@
     }
 
     .yt-thumb-mini {
-      width: 118px;
-      height: 66px;
-      border-radius: 9px;
+      width: 98px;
+      height: 56px;
+      border-radius: 8px;
       background: var(--bg-subtle);
       border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 6px 8px;
+      padding: 5px 7px;
       flex-shrink: 0;
       position: relative;
       overflow: hidden;
@@ -1086,14 +1152,14 @@
 
     .yt-thumb-duration {
       position: absolute;
-      bottom: 4px;
-      right: 5px;
+      bottom: 3px;
+      right: 4px;
       background: rgba(7, 9, 14, 0.86);
       color: #ffffff;
       font-family: var(--font-mono);
-      font-size: 9.5px;
+      font-size: 9px;
       font-weight: 700;
-      padding: 1px 5px;
+      padding: 1px 4px;
       border-radius: 4px;
       border: 1px solid rgba(255, 255, 255, 0.12);
     }
@@ -1101,14 +1167,14 @@
     /* Home Recommendation Video Grid Cards with Sparklines */
     .yt-rec-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 12px;
     }
 
     .yt-video-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 12px;
       overflow: hidden;
       cursor: pointer;
       transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
@@ -1123,8 +1189,8 @@
     }
 
     .yt-video-thumb {
-      height: 130px;
-      padding: 12px 14px;
+      height: 118px;
+      padding: 10px 12px;
       background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-subtle) 100%);
       border-bottom: 1px solid var(--border);
       display: flex;
@@ -1135,21 +1201,21 @@
     }
 
     .yt-video-card-body {
-      padding: 12px 14px;
+      padding: 10px 12px;
       display: flex;
-      gap: 11px;
+      gap: 10px;
       align-items: center;
     }
 
     .yt-avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 9px;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
       background: linear-gradient(135deg, var(--accent-indigo), #3b82f6);
       color: #ffffff;
       font-family: var(--font-display);
       font-weight: 800;
-      font-size: 12.5px;
+      font-size: 11.5px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -1165,9 +1231,9 @@
 
     .btn {
       font-family: var(--font-sans);
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 600;
-      padding: 6.5px 13px;
+      padding: 5.5px 11px;
       border-radius: 99px;
       border: 1px solid var(--border-strong);
       background: var(--bg-chip);
@@ -1175,7 +1241,7 @@
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       transition: all 0.15s ease;
       text-decoration: none;
       white-space: nowrap;
@@ -1212,9 +1278,9 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 2.5px 8px;
-      border-radius: 6px;
-      font-size: 10.5px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 10px;
       font-weight: 700;
       line-height: 1.3;
       white-space: nowrap;
@@ -1254,42 +1320,42 @@
     .card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 12px;
       overflow: hidden;
       box-shadow: var(--shadow-card);
     }
 
     .card-header {
-      padding: 12px 16px;
+      padding: 9px 13px;
       border-bottom: 1px solid var(--border);
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      gap: 8px;
       background: var(--bg-elevated);
     }
 
     .card-title {
       font-family: var(--font-display);
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 800;
       color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
     }
 
     .card-body {
-      padding: 16px;
+      padding: 12px 14px;
     }
 
     .input-box, .select-box {
       font-family: var(--font-sans);
-      font-size: 12.5px;
-      padding: 6.5px 11px;
+      font-size: 12px;
+      padding: 5.5px 9px;
       border: 1px solid var(--border-strong);
-      border-radius: 8px;
+      border-radius: 7px;
       background: var(--bg-input);
       color: var(--text-main);
       outline: none;
@@ -1302,24 +1368,24 @@
     /* 12-Cell Key Data Strip */
     .data-grid-12 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
       background: var(--border);
       gap: 1px;
-      border-radius: 10px;
+      border-radius: 9px;
       overflow: hidden;
       border: 1px solid var(--border);
     }
 
     .data-cell {
       background: var(--bg-elevated);
-      padding: 10px 12px;
+      padding: 8px 10px;
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
 
     .data-cell .k {
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 700;
       color: var(--text-muted);
       text-transform: uppercase;
@@ -1328,25 +1394,25 @@
 
     .data-cell .v {
       font-family: var(--font-mono);
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--text-main);
     }
 
     .data-cell .sub {
-      font-size: 10.5px;
+      font-size: 10px;
       color: var(--text-secondary);
     }
 
     /* Advisor Verdict Strip */
     .advisor-verdict-box {
-      padding: 14px 16px;
-      border-radius: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
     }
 
     .advisor-verdict-box.verdict-green {
@@ -1366,31 +1432,31 @@
 
     .verdict-headline {
       font-family: var(--font-display);
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 800;
       color: var(--text-main);
     }
 
     .verdict-desc {
-      font-size: 12.5px;
+      font-size: 11.5px;
       color: var(--text-secondary);
-      margin-top: 3px;
+      margin-top: 2px;
     }
 
     .safety-checks-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 5px;
     }
 
     .safety-chip {
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 700;
-      padding: 3.5px 9px;
+      padding: 3px 8px;
       border-radius: 99px;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 4px;
     }
 
     .safety-chip.pass {
@@ -1408,24 +1474,25 @@
     /* 2-Column Buy vs Sell Execution Matrix */
     .execution-matrix {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(305px, 1fr));
+      gap: 12px;
     }
 
-    @media (max-width: 960px) {
+    @media (max-width: 820px) {
       .execution-matrix {
         grid-template-columns: 1fr;
       }
     }
 
     .exec-panel {
-      border-radius: 14px;
+      border-radius: 12px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       background: var(--bg-card);
       border: 1px solid var(--border);
       box-shadow: var(--shadow-card);
+      min-width: 0;
     }
 
     .exec-panel.green-panel {
@@ -1437,14 +1504,14 @@
     }
 
     .exec-panel-header {
-      padding: 11px 16px;
+      padding: 9px 13px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
       font-family: var(--font-display);
       font-weight: 800;
-      font-size: 12px;
+      font-size: 11.5px;
       letter-spacing: 0.02em;
     }
 
@@ -1461,27 +1528,27 @@
     }
 
     .exec-panel-body {
-      padding: 15px;
+      padding: 12px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
 
     .kv-table {
       width: 100%;
       border-collapse: collapse;
       background: var(--bg-card);
-      border-radius: 8px;
+      border-radius: 7px;
       overflow: hidden;
       border: 1px solid var(--border);
     }
 
     .kv-table th,
     .kv-table td {
-      padding: 9px 12px;
+      padding: 7px 10px;
       text-align: left;
       border-bottom: 1px solid var(--border);
-      font-size: 12px;
+      font-size: 11.5px;
       color: var(--text-main);
     }
 
@@ -1493,7 +1560,7 @@
       background: var(--bg-elevated);
       color: var(--text-muted);
       font-weight: 700;
-      font-size: 10.5px;
+      font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
@@ -1506,7 +1573,7 @@
     /* Full Screener Table with Sticky Header AND Sticky First Column */
     .table-scroll {
       width: 100%;
-      max-height: 640px;
+      max-height: 620px;
       overflow: auto;
     }
 
@@ -1514,7 +1581,7 @@
       width: 100%;
       border-collapse: separate;
       border-spacing: 0;
-      font-size: 12.5px;
+      font-size: 11.5px;
     }
 
     table.screener-table thead th {
@@ -1524,10 +1591,10 @@
       background: var(--bg-elevated);
       color: var(--text-muted);
       font-weight: 700;
-      font-size: 10.5px;
+      font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-      padding: 11px 10px;
+      letter-spacing: 0.03em;
+      padding: 8px 7px;
       border-bottom: 1px solid var(--border-strong);
       text-align: left;
       white-space: nowrap;
@@ -1566,7 +1633,7 @@
     }
 
     table.screener-table tbody td {
-      padding: 8.5px 10px;
+      padding: 6.5px 7px;
       vertical-align: middle;
       white-space: nowrap;
       border-bottom: 1px solid var(--border);
@@ -1938,8 +2005,8 @@
       <main class="container">
 
         <!-- 0. LIVE BUY / TARGET / STOP-LOSS & BOOK-CLOSE ALERT BANNER -->
-        <section id="liveAlertBanner" class="card" style="padding:9px 16px; background:var(--bg-elevated); border-left:4px solid var(--brand-primary); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
-          <div id="liveAlertItems" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12px;">
+        <section id="liveAlertBanner" class="card" style="padding:5px 12px; background:var(--bg-elevated); border-left:3px solid var(--brand-primary); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px;">
+          <div id="liveAlertItems" style="display:flex; flex-wrap:wrap; align-items:center; gap:7px; font-size:11.5px;">
             <span style="font-weight:800; color:var(--text-main);">LIVE PRICE ALERTS:</span>
             <span class="text-muted">Scanning your saved WACC portfolio &amp; live NEPSE buy/stop zones...</span>
           </div>
@@ -1999,15 +2066,15 @@
         <section class="yt-watch-grid" id="stockResearchCard">
 
           <!-- LEFT PRIMARY COLUMN -->
-          <div style="display:flex; flex-direction:column; gap:15px; min-width:0;" id="watchLeftCol">
+          <div style="display:flex; flex-direction:column; gap:10px; min-width:0;" id="watchLeftCol">
 
             <!-- Stock Channel Hero Card with Circular SVG Score Ring & 5-Light Instant Confluence Bar -->
-            <div class="stock-hero-card" id="stockHeroTopCard" style="flex-direction:column; align-items:stretch; gap:12px;">
-              <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px;">
+            <div class="stock-hero-card" id="stockHeroTopCard" style="flex-direction:column; align-items:stretch; gap:8px;">
+              <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
                 <div class="stock-hero-left">
                   <div class="score-ring-wrap" id="selScoreRingWrap" title="6-Gate Institutional Quant Score"></div>
                   <div>
-                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                       <span class="stock-symbol" id="selSymbol">NABIL</span>
                       <span class="badge badge-neutral" id="selSector">Commercial Banking</span>
                       <span class="badge badge-green" id="selBuyBadge">BUY ON DIP</span>
@@ -2015,30 +2082,30 @@
                       <span class="badge badge-neutral" id="selRsAlphaBadge" title="20-Day Relative Strength vs NEPSE Index">RS vs NEPSE: --</span>
                       <span class="badge badge-green-soft" id="selBookCloseBadge" style="display:none;">Book-Close Adjusted</span>
                     </div>
-                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:4px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:2px;">
                       <span class="stock-name" id="selName">Nabil Bank Limited</span>
-                      <span class="badge badge-neutral" id="selSourceBadge" style="font-size:10px;">Merolagani Live</span>
+                      <span class="badge badge-neutral" id="selSourceBadge" style="font-size:9.5px;">Merolagani Live</span>
                     </div>
                   </div>
                 </div>
 
-                <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                   <div style="text-align:right;">
-                    <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Last Traded Price</div>
-                    <div style="display:flex; align-items:baseline; gap:8px;">
+                    <div style="font-size:9.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Last Traded Price</div>
+                    <div style="display:flex; align-items:baseline; gap:6px;">
                       <span class="stock-ltp" id="selLtp">Rs 528.50</span>
                       <span class="stock-change flat" id="selChangeBadge">0.00 (0.00%)</span>
                     </div>
                   </div>
 
-                  <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-soft-green" id="heroAddToMeroBtn" style="padding:6.5px 12px; font-size:12px; font-weight:800;" onclick="addCurrentStockToMeroPortfolio()">
+                  <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-soft-green" id="heroAddToMeroBtn" style="padding:5px 10px; font-size:11px; font-weight:800;" onclick="addCurrentStockToMeroPortfolio()">
                       + Add to "Mero"
                     </button>
-                    <select id="compareStockSelect" class="select-box" style="border-radius:99px; padding:6.5px 12px; font-size:12px; font-weight:700;" onchange="renderStockComparison()">
+                    <select id="compareStockSelect" class="select-box" style="border-radius:99px; padding:5px 10px; font-size:11px; font-weight:700;" onchange="renderStockComparison()">
                       <option value="">Compare With Another Stock...</option>
                     </select>
-                    <a id="selMeroLink" href="https://www.merolagani.com/CompanyDetail.aspx?symbol=NABIL" target="_blank" rel="noopener" class="btn">
+                    <a id="selMeroLink" href="https://www.merolagani.com/CompanyDetail.aspx?symbol=NABIL" target="_blank" rel="noopener" class="btn" style="padding:5px 10px; font-size:11px;">
                       MeroLagani ↗
                     </a>
                   </div>
@@ -2046,11 +2113,8 @@
               </div>
 
               <!-- 5-Light Instant Confluence Bar -->
-              <div id="heroConfluenceBar" style="display:flex; flex-wrap:wrap; align-items:center; gap:7px; padding-top:10px; border-top:1px solid var(--border); font-size:11px;"></div>
+              <div id="heroConfluenceBar" style="display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding-top:7px; border-top:1px solid var(--border); font-size:10.5px;"></div>
             </div>
-
-            <!-- 1A. 10-SECOND KID-SIMPLE 3-BOX ACTION GUIDE (PRIMARY STUDENT LEVEL CLARITY) -->
-            <div class="kid-simple-grid" id="kidSimpleGuideBox"></div>
 
             <!-- 1B. 1-CLICK SIDE-BY-SIDE 2-STOCK COMPARISON CARD -->
             <div id="stockCompareBox" class="yt-description-box" style="display:none; border-color:var(--green-border-strong);"></div>
@@ -2058,7 +2122,7 @@
             <!-- Interactive Candlestick Player Stage + TradingView Timeframe & Overlay Toolbar -->
             <div class="yt-player-stage" id="chartPlayerSection">
               <div class="yt-player-header">
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                   <!-- Interactive Timeframe Selector (30D / 60D / 90D / 1W Weekly) -->
                   <div class="tv-toolbar-group" title="Select how many days or weeks of price history to view">
                     <button type="button" class="tv-pill-btn" id="tfBtn-30" onclick="setChartTimeframe(30)" title="Last 30 Trading Days">30D</button>
@@ -2080,10 +2144,10 @@
                     <button type="button" class="tv-pill-btn active" id="ovBtn-rsi" onclick="toggleChartOverlay('rsi')" title="Heat Meter at the bottom: Below 30 = Cheap, Above 70 = Overheated">RSI Heat Meter</button>
                   </div>
 
-                  <span id="chartPatternBadge" class="text-muted" style="font-size:11px; font-weight:600;">Multi-Timeframe &amp; CMT Pattern Overlay</span>
+                  <span id="chartPatternBadge" class="text-muted" style="font-size:10.5px; font-weight:600;">Multi-Timeframe &amp; CMT Pattern Overlay</span>
                 </div>
 
-                <div style="display:flex; flex-wrap:wrap; gap:9px; font-size:10px; font-family:var(--font-mono);">
+                <div style="display:flex; flex-wrap:wrap; gap:8px; font-size:9.5px; font-family:var(--font-mono);">
                   <span style="color:#38bdf8; font-weight:700;">― 20D AVG (EMA20)</span>
                   <span style="color:#f59e0b; font-weight:700;">― 50D AVG (SMA50)</span>
                   <span style="color:#10b981; font-weight:700;">― SAFETY TREND (ST)</span>
@@ -2094,8 +2158,11 @@
                 <span>Move your mouse over the chart to see that day's Open, High, Low, Close, Volume &amp; Heat Meter (RSI)...</span>
                 <span id="chartRangeInfo" class="mono">60D View</span>
               </div>
-              <canvas id="priceChart" width="960" height="425"></canvas>
+              <canvas id="priceChart" width="960" height="315"></canvas>
             </div>
+
+            <!-- 1A. 10-SECOND KID-SIMPLE 3-BOX ACTION GUIDE (PRIMARY STUDENT LEVEL CLARITY) -->
+            <div class="kid-simple-grid" id="kidSimpleGuideBox"></div>
 
             <!-- Segmented Workspace Switcher (Optional sub-filter when viewing All Panels) -->
             <div class="workspace-seg-bar" id="subWorkspaceBar" style="display:none;">
@@ -2435,73 +2502,73 @@
           </div>
 
           <!-- 5-METRIC CDSC MEROSHARE + WACC KPI RIBBON -->
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px;" id="meroSummaryBoxes">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:10px;" id="meroSummaryBoxes">
             <!-- KPI 1: Portfolio Market Value -->
-            <div class="kid-step-box" style="padding:13px 15px; border-color:var(--green-border-strong); background:linear-gradient(135deg, rgba(16,185,129,0.10), transparent);">
+            <div class="kid-step-box" style="padding:11px 13px; border-color:var(--green-border-strong); background:linear-gradient(135deg, rgba(16,185,129,0.10), transparent);">
               <div class="kid-step-tag" style="color:var(--green-main);">
                 <span>1 • MARKET VALUE (LTP)</span>
                 <span class="badge badge-green mono" id="meroBox1Badge">0 Scrips</span>
               </div>
-              <div class="kid-step-main mono" id="meroTotalValueText" style="font-size:20px;">Rs 0</div>
-              <div class="kid-step-desc" id="meroPrevCloseDesc" style="font-size:11.5px;">
+              <div class="kid-step-main mono" id="meroTotalValueText" style="font-size:18px;">Rs 0</div>
+              <div class="kid-step-desc" id="meroPrevCloseDesc" style="font-size:11px;">
                 CDSC Prev Close Value: <strong>Rs 0</strong>
               </div>
             </div>
 
             <!-- KPI 2: Accurate WACC Invested Capital -->
-            <div class="kid-step-box" style="padding:13px 15px; border-color:rgba(56,189,248,0.45); background:linear-gradient(135deg, rgba(56,189,248,0.09), transparent);">
+            <div class="kid-step-box" style="padding:11px 13px; border-color:rgba(56,189,248,0.45); background:linear-gradient(135deg, rgba(56,189,248,0.09), transparent);">
               <div class="kid-step-tag" style="color:var(--accent-blue);">
                 <span>2 • TOTAL WACC COST</span>
                 <span class="badge badge-neutral mono" id="meroWaccSourceBadge">CDSC WACC</span>
               </div>
-              <div class="kid-step-main mono" id="meroTotalInvestedText" style="font-size:20px;">Rs 0</div>
-              <div class="kid-step-desc" id="meroTotalProfitDesc" style="font-size:11.5px;">
+              <div class="kid-step-main mono" id="meroTotalInvestedText" style="font-size:18px;">Rs 0</div>
+              <div class="kid-step-desc" id="meroTotalProfitDesc" style="font-size:11px;">
                 Pulled from CDSC <code>/myPurchase/waccReport</code>
               </div>
             </div>
 
             <!-- KPI 3: Net Profit / Loss After SEBON, Broker & CGT -->
-            <div class="kid-step-box" style="padding:13px 15px; border-color:var(--green-border); background:linear-gradient(135deg, rgba(16,185,129,0.06), transparent);">
+            <div class="kid-step-box" style="padding:11px 13px; border-color:var(--green-border); background:linear-gradient(135deg, rgba(16,185,129,0.06), transparent);">
               <div class="kid-step-tag" style="color:var(--text-secondary);">
                 <span>3 • NET P&amp;L (AFTER TAX)</span>
                 <span class="badge badge-neutral mono" id="meroNetReturnBadge">0.00%</span>
               </div>
-              <div class="kid-step-main mono" id="meroNetProfitText" style="font-size:20px;">Rs 0</div>
-              <div class="kid-step-desc" id="meroTaxBreakdownDesc" style="font-size:11.5px;">
+              <div class="kid-step-main mono" id="meroNetProfitText" style="font-size:18px;">Rs 0</div>
+              <div class="kid-step-desc" id="meroTaxBreakdownDesc" style="font-size:11px;">
                 After Broker Fee, SEBON 0.015%, DP Rs 25 &amp; 5%/7.5% CGT
               </div>
             </div>
 
             <!-- KPI 4: My Shares Balance Breakdown (Free / Pledge / Lock-in) -->
-            <div class="kid-step-box" style="padding:13px 15px; border-color:rgba(168,85,247,0.4); background:linear-gradient(135deg, rgba(168,85,247,0.08), transparent);">
+            <div class="kid-step-box" style="padding:11px 13px; border-color:rgba(168,85,247,0.4); background:linear-gradient(135deg, rgba(168,85,247,0.08), transparent);">
               <div class="kid-step-tag" style="color:#c084fc;">
                 <span>4 • DEMAT KITTA BALANCES</span>
                 <span class="badge badge-neutral mono" id="meroBox3Badge">My Shares</span>
               </div>
-              <div class="kid-step-main mono" id="meroShareBalanceText" style="font-size:18px;">0 Total Kitta</div>
-              <div class="kid-step-desc" id="meroSyncDesc" style="font-size:11.5px;">
+              <div class="kid-step-main mono" id="meroShareBalanceText" style="font-size:17px;">0 Total Kitta</div>
+              <div class="kid-step-desc" id="meroSyncDesc" style="font-size:11px;">
                 Free Tradable: <strong>0</strong> • Locked/Pledged/Pending: <strong>0</strong>
               </div>
             </div>
 
             <!-- KPI 5: Today's Quant Decision Summary -->
-            <div class="kid-step-box" style="padding:13px 15px; border-color:var(--amber-border); background:linear-gradient(135deg, rgba(245,158,11,0.08), transparent);">
+            <div class="kid-step-box" style="padding:11px 13px; border-color:var(--amber-border); background:linear-gradient(135deg, rgba(245,158,11,0.08), transparent);">
               <div class="kid-step-tag" style="color:var(--amber-main);">
                 <span>5 • ACTION PLAN TODAY</span>
                 <span class="badge badge-neutral" id="meroBox2Badge">Action Check</span>
               </div>
-              <div class="kid-step-main" id="meroActionHeadline" style="font-size:15.5px;">Waiting for CDSC Pull</div>
-              <div class="kid-step-desc" id="meroActionDesc" style="font-size:11.5px;">
+              <div class="kid-step-main" id="meroActionHeadline" style="font-size:15px;">Waiting for CDSC Pull</div>
+              <div class="kid-step-desc" id="meroActionDesc" style="font-size:11px;">
                 Log in on the left to pull all your Demat shares &amp; WACC.
               </div>
             </div>
           </div>
 
-          <!-- NEW 2-PANE WORKSPACE LAYOUT: LEFT CONTROL DOCK (355px) + RIGHT MULTI-TAB DATA CENTER (1fr) -->
-          <div style="display:grid; grid-template-columns:minmax(330px, 365px) minmax(0, 1fr); gap:16px; align-items:start;">
+          <!-- NEW 2-PANE WORKSPACE LAYOUT: LEFT CONTROL DOCK (295px) + RIGHT MULTI-TAB DATA CENTER (1fr) -->
+          <div style="display:grid; grid-template-columns:minmax(275px, 305px) minmax(0, 1fr); gap:12px; align-items:start;">
 
             <!-- ================= LEFT PANE: CDSC LOGIN, DEMAT KYC PROFILE & WACC OVERRIDE ================= -->
-            <div style="display:flex; flex-direction:column; gap:14px;">
+            <div style="display:flex; flex-direction:column; gap:12px;">
 
               <!-- CARD 1: Direct CDSC MeroShare Login -->
               <div class="card" id="meroLoginCard" style="border:1.5px solid var(--green-border-strong);">
@@ -3115,7 +3182,19 @@
 
     function toggleYoutubeSidebar() {
       const sb = document.getElementById('ytSidebar');
-      if (sb) sb.classList.toggle('collapsed');
+      if (!sb) return;
+      if (window.innerWidth <= 1400) {
+        sb.classList.toggle('force-expanded');
+        sb.classList.remove('collapsed');
+      } else {
+        sb.classList.toggle('collapsed');
+        sb.classList.remove('force-expanded');
+      }
+      setTimeout(() => {
+        if (activeChartBars.length > 0 && activeChartSignal) {
+          drawWhiteChart(activeChartBars, activeChartSignal);
+        }
+      }, 210);
     }
 
     function toggleTheme() {
@@ -4969,6 +5048,13 @@
 
       const canvas = document.getElementById('priceChart');
       if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rect && rect.width > 240 && rect.height > 150) {
+        const targetW = Math.round(rect.width);
+        const targetH = Math.round(rect.height);
+        if (Math.abs(canvas.width - targetW) > 2) canvas.width = targetW;
+        if (Math.abs(canvas.height - targetH) > 2) canvas.height = targetH;
+      }
       const ctx = canvas.getContext('2d');
       const W = canvas.width;
       const H = canvas.height;
@@ -5612,6 +5698,15 @@
         if (activeChartBars && activeChartBars.length > 0) {
           drawWhiteChart(activeChartBars, activeChartSignal, null);
         }
+      });
+      let resizeTimer = null;
+      window.addEventListener('resize', () => {
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (activeChartBars && activeChartBars.length > 0 && activeChartSignal) {
+            drawWhiteChart(activeChartBars, activeChartSignal, null);
+          }
+        }, 80);
       });
     })();
 
