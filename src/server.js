@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const url = require("url");
+const zlib = require("zlib");
 const nepseProvider = require("./nepseProvider");
 const { analyzeStock, normalizeBarsForBookClose } = require("./signalEngine");
 const { handleMessage, getAppState, saveState } = require("./commandHandler");
@@ -198,12 +199,90 @@ function parseMeroshareTextHoldings(rawText) {
   return parsed;
 }
 
-function sendJson(res, statusCode, payload) {
+const perStockSignalCache = new Map();
+let lastQuotesDigest = "";
+
+function buildIncrementalDashboardSignals(quotes) {
+  let digest = "";
+  for (let i = 0; i < quotes.length; i++) {
+    const q = quotes[i];
+    digest += `${q.symbol}:${q.ltp}:${q.volume}:${q.prevClose};`;
+  }
+  if (global.__cachedDashboardSignals && global.__cachedDashboardSignals.length === quotes.length && digest === lastQuotesDigest) {
+    return global.__cachedDashboardSignals;
+  }
+
+  const signals = quotes
+    .map((q) => {
+      const stockKey = `${q.ltp}:${q.high}:${q.low}:${q.prevClose}:${q.volume}:${q.sectorChangePct || 0}`;
+      const cached = perStockSignalCache.get(q.symbol);
+      if (cached && cached.stockKey === stockKey) {
+        return cached.signal;
+      }
+      const bars = nepseProvider.getHistoricalBars(q.symbol);
+      const a = analyzeStock(q, bars);
+      if (!a) return null;
+      const enriched = {
+        ...a,
+        recentBars: Array.isArray(a.recentBars) ? a.recentBars.slice(-18) : [],
+        executionMatrix: a.executionMatrix ? { exits: a.executionMatrix.exits } : null,
+        weeklyTrading: a.weeklyTrading ? { ...a.weeklyTrading, weeklyBars: undefined } : null,
+        open: q.open,
+        high: q.high,
+        low: q.low,
+        prevClose: q.prevClose,
+        volume: q.volume,
+        turnover: q.turnover,
+        high52w: q.high52w,
+        low52w: q.low52w,
+        avg120d: q.avg120d,
+        avg180d: q.avg180d,
+        epsMeta: q.epsMeta,
+        floorsheetData: q.floorsheetData || null,
+        realOHLCVVerified: Boolean(q.realOHLCVVerified),
+        realBarsCount: q.realBarsCount || 0,
+        realFundamentalsVerified: Boolean(q.realFundamentalsVerified),
+        realFloorsheetVerified: Boolean(q.realFloorsheetVerified),
+        isCoreSeed: Boolean(q.isCoreSeed),
+        source: q.source
+      };
+      perStockSignalCache.set(q.symbol, { stockKey, signal: enriched });
+      return enriched;
+    })
+    .filter(Boolean)
+    .sort(
+      (a, b) =>
+        (b.realOHLCVVerified ? 1 : 0) - (a.realOHLCVVerified ? 1 : 0) ||
+        (b.isCoreSeed ? 1 : 0) - (a.isCoreSeed ? 1 : 0) ||
+        b.quantScore - a.quantScore ||
+        a.symbol.localeCompare(b.symbol)
+    );
+
+  lastQuotesDigest = digest;
+  global.__cachedDashboardSignals = signals;
+  return signals;
+}
+
+function sendJson(res, statusCode, payload, req = null) {
+  const jsonStr = JSON.stringify(payload);
+  const acceptEnc = String((req && req.headers && req.headers["accept-encoding"]) || res.req?.headers?.["accept-encoding"] || "");
+  if (jsonStr.length > 2048 && acceptEnc.includes("gzip")) {
+    const gz = zlib.gzipSync(Buffer.from(jsonStr, "utf8"), { level: 1 });
+    res.writeHead(statusCode, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Encoding": "gzip",
+      "Content-Length": gz.length,
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store"
+    });
+    return res.end(gz);
+  }
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": "*"
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "no-store"
   });
-  res.end(JSON.stringify(payload));
+  return res.end(jsonStr);
 }
 
 function parseBody(req) {
@@ -231,6 +310,7 @@ function parseBody(req) {
 }
 
 const requestHandler = async (req, res) => {
+  res.req = req;
   const parsedUrl = url.parse(req.url || "/", true);
   let pathname = parsedUrl.pathname || "/";
   if (parsedUrl.query && parsedUrl.query.__path) {
@@ -278,50 +358,42 @@ const requestHandler = async (req, res) => {
       const forceRefresh = Boolean(parsedUrl.query.refresh);
       if (forceRefresh) {
         await nepseProvider.refreshLiveQuotes(true);
-        global.__cachedDashboardSignals = null;
       }
-      const market = await nepseProvider.getMarketSummary();
-      const quotes = await nepseProvider.getAllQuotes();
+      const [market, quotes, newsFeed] = await Promise.all([
+        nepseProvider.getMarketSummary(),
+        nepseProvider.getAllQuotes(),
+        nepseProvider.getNewsFeed("", false)
+      ]);
       const sectors = nepseProvider.getSectors();
-      const newsFeed = await nepseProvider.getNewsFeed("", false);
-
-      let signals = global.__cachedDashboardSignals;
-      if (!signals || signals.length !== quotes.length) {
-        signals = quotes
-          .map((q) => {
-            const bars = nepseProvider.getHistoricalBars(q.symbol);
-            const a = analyzeStock(q, bars);
-            if (!a) return null;
-            return {
-              ...a,
-              open: q.open,
-              high: q.high,
-              low: q.low,
-              prevClose: q.prevClose,
-              volume: q.volume,
-              turnover: q.turnover,
-              high52w: q.high52w,
-              low52w: q.low52w,
-              avg120d: q.avg120d,
-              avg180d: q.avg180d,
-              epsMeta: q.epsMeta,
-              floorsheetData: q.floorsheetData || null,
-              realOHLCVVerified: Boolean(q.realOHLCVVerified),
-              realBarsCount: q.realBarsCount || 0,
-              realFundamentalsVerified: Boolean(q.realFundamentalsVerified),
-              realFloorsheetVerified: Boolean(q.realFloorsheetVerified),
-              isCoreSeed: Boolean(q.isCoreSeed),
-              source: q.source
-            };
-          })
-          .filter(Boolean)
-          .sort((a, b) => (b.realOHLCVVerified ? 1 : 0) - (a.realOHLCVVerified ? 1 : 0) || (b.isCoreSeed ? 1 : 0) - (a.isCoreSeed ? 1 : 0) || b.quantScore - a.quantScore || a.symbol.localeCompare(b.symbol));
-        global.__cachedDashboardSignals = signals;
-      }
+      const signals = buildIncrementalDashboardSignals(quotes);
 
       const state = getAppState();
+      const waStatus = whatsappClient.getStatus();
+      const fullPayloadKey = `${lastQuotesDigest}|${market.nepseIndex}|${market.pointChange}|${newsFeed.updatedAt || ""}|${waStatus.connected}:${waStatus.hasQr}`;
+      const acceptEnc = String(req.headers["accept-encoding"] || "");
+
+      if (global.__dashboardCacheKey === fullPayloadKey && global.__dashboardGzipBuf && global.__dashboardRawBuf) {
+        if (acceptEnc.includes("gzip")) {
+          res.writeHead(200, {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Encoding": "gzip",
+            "Content-Length": global.__dashboardGzipBuf.length,
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-store"
+          });
+          return res.end(global.__dashboardGzipBuf);
+        }
+        res.writeHead(200, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Length": global.__dashboardRawBuf.length,
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "no-store"
+        });
+        return res.end(global.__dashboardRawBuf);
+      }
+
       const syncLatencyMs = Math.max(1, Date.now() - t0);
-      return sendJson(res, 200, {
+      const payloadObj = {
         ok: true,
         syncLatencyMs,
         syncedAt: new Date().toISOString(),
@@ -335,8 +407,31 @@ const requestHandler = async (req, res) => {
         watchlist: state.watchlists.default || [],
         portfolio: state.portfolio?.default || [],
         alerts: state.alerts || [],
-        whatsapp: whatsappClient.getStatus()
+        whatsapp: waStatus
+      };
+      const rawBuf = Buffer.from(JSON.stringify(payloadObj), "utf8");
+      const gzBuf = zlib.gzipSync(rawBuf, { level: 1 });
+      global.__dashboardCacheKey = fullPayloadKey;
+      global.__dashboardRawBuf = rawBuf;
+      global.__dashboardGzipBuf = gzBuf;
+
+      if (acceptEnc.includes("gzip")) {
+        res.writeHead(200, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Encoding": "gzip",
+          "Content-Length": gzBuf.length,
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "no-store"
+        });
+        return res.end(gzBuf);
+      }
+      res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": rawBuf.length,
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-store"
       });
+      return res.end(rawBuf);
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: err.message });
     }
@@ -1366,7 +1461,7 @@ const requestHandler = async (req, res) => {
     }
   }
 
-  // Serve Static Files from public/
+  // Serve Static Files from public/ (with fast Gzip compression)
   const isRootOrSpa = pathname === "/" || pathname === "/index.html" || pathname === "/api/index.js";
   let filePath = isRootOrSpa ? path.join(PUBLIC_DIR, "index.html") : path.join(PUBLIC_DIR, pathname);
   if (!fs.existsSync(filePath) && !pathname.startsWith("/api/")) {
@@ -1383,6 +1478,17 @@ const requestHandler = async (req, res) => {
       ".svg": "image/svg+xml"
     };
     const content = fs.readFileSync(filePath);
+    const acceptEnc = String(req.headers["accept-encoding"] || "");
+    if ((ext === ".html" || ext === ".js" || ext === ".css") && content.length > 2048 && acceptEnc.includes("gzip")) {
+      const gz = zlib.gzipSync(content, { level: 1 });
+      res.writeHead(200, {
+        "Content-Type": mimeTypes[ext] || "text/plain",
+        "Content-Encoding": "gzip",
+        "Content-Length": gz.length,
+        "Cache-Control": "no-cache"
+      });
+      return res.end(gz);
+    }
     res.writeHead(200, { "Content-Type": mimeTypes[ext] || "text/plain" });
     return res.end(content);
   }
@@ -1393,7 +1499,28 @@ const requestHandler = async (req, res) => {
 
 const server = http.createServer(requestHandler);
 
+// Pre-warm all 286 stock signals + gzipped dashboard buffer immediately so even the 1st request is 1-2ms
+setImmediate(async () => {
+  try {
+    await requestHandler(
+      { url: "/api/dashboard", method: "GET", headers: { "accept-encoding": "gzip" } },
+      { writeHead() {}, end() {} }
+    );
+  } catch (_) {}
+});
+
 if (!process.env.VERCEL && require.main === module) {
+  // High-Speed Background Live Streamer (keeps quotes & signals hot every 10s during open market hours)
+  setInterval(async () => {
+    try {
+      if (nepseProvider.isMarketOpenNow().isOpen) {
+        await nepseProvider.refreshLiveQuotes(true);
+        const quotes = await nepseProvider.getAllQuotes();
+        buildIncrementalDashboardSignals(quotes);
+      }
+    } catch (_) {}
+  }, 10000);
+
   // Background Price Alert Checker (every 60 seconds)
   setInterval(async () => {
     try {

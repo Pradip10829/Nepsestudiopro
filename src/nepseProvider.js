@@ -896,16 +896,23 @@ class NepseProvider {
   }
 
   saveLiveDiskCache() {
-    try {
-      if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-      const payload = {
-        savedAt: new Date().toISOString(),
-        dataSource: this.dataSource,
-        marketIndex: this.marketIndex,
-        quotes: Array.from(this.quotes.values()).filter((q) => q.symbol !== "NEPSE")
-      };
-      fs.writeFileSync(LIVE_CACHE_FILE, JSON.stringify(payload, null, 2), "utf8");
-    } catch (_) {}
+    if (this._savingDiskCache) return;
+    this._savingDiskCache = true;
+    setImmediate(async () => {
+      try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        const payload = {
+          savedAt: new Date().toISOString(),
+          dataSource: this.dataSource,
+          marketIndex: this.marketIndex,
+          quotes: Array.from(this.quotes.values()).filter((q) => q.symbol !== "NEPSE")
+        };
+        await fs.promises.writeFile(LIVE_CACHE_FILE, JSON.stringify(payload), "utf8");
+      } catch (_) {
+      } finally {
+        this._savingDiskCache = false;
+      }
+    });
   }
 
   getDataFreshnessBadge() {
@@ -957,14 +964,20 @@ class NepseProvider {
       this.syncNepseIndexQuote();
       return;
     }
-    const minIntervalMs = !isOpen && this.quotes.size > 100 ? 3600000 : 30000;
+    const minIntervalMs = !isOpen && this.quotes.size > 100 ? 3600000 : 12000;
     if (!force && this.lastScrapedAt > 0 && now - this.lastScrapedAt < minIntervalMs) {
       return;
+    }
+    if (this._activeRefreshPromise) {
+      return Promise.race([
+        this._activeRefreshPromise,
+        new Promise((r) => setTimeout(r, 850))
+      ]);
     }
     this.lastScrapedAt = now;
 
     const ua = { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" };
-    const fetchWithTimeout = async (urlStr, ms = 2200) => {
+    const fetchWithTimeout = async (urlStr, ms = 1800) => {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), ms);
       try {
@@ -974,184 +987,207 @@ class NepseProvider {
       }
     };
 
-    // Run Official Index, Sub-Index, and Live Market feeds in PARALLEL for sub-2s live sync
-    const [idxOutcome, subOutcome, meroOutcome] = await Promise.allSettled([
-      fetchWithTimeout("https://www.nepalipaisa.com/api/GetIndexLive", 2200),
-      fetchWithTimeout("https://www.nepalipaisa.com/api/GetSubIndexLive", 2200),
-      cheerio ? fetchWithTimeout("https://merolagani.com/LatestMarket.aspx", 2500) : Promise.resolve(null)
+    const runBackgroundSync = async () => {
+      let meroUpdated = 0;
+
+      // 1. Official Real-Time NEPSE Index (independent fast stream)
+      const idxTask = fetchWithTimeout("https://www.nepalipaisa.com/api/GetIndexLive", 1600)
+        .then(async (idxRes) => {
+          if (!idxRes || !idxRes.ok) return;
+          const idxJson = await idxRes.json();
+          const rows = Array.isArray(idxJson?.result) ? idxJson.result : [];
+          const nepseRow = rows.find((r) => String(r.indexName).toLowerCase() === "nepse");
+          const sensRow = rows.find((r) => String(r.indexName).toLowerCase() === "sensitive");
+          const floatRow = rows.find((r) => String(r.indexName).toLowerCase() === "float");
+          const sensFloatRow = rows.find((r) => String(r.indexName).toLowerCase().includes("sen. float"));
+
+          if (nepseRow && Number(nepseRow.indexValue) > 1000) {
+            this.marketIndex.nepseIndex = Number(nepseRow.indexValue);
+            this.marketIndex.previousValue = Number(nepseRow.previousValue || nepseRow.indexValue);
+            this.marketIndex.openingValue = Number(nepseRow.openingValue || nepseRow.indexValue);
+            this.marketIndex.dayHigh = Number(nepseRow.dayHigh || nepseRow.indexValue);
+            this.marketIndex.dayLow = Number(nepseRow.dayLow || nepseRow.indexValue);
+            this.marketIndex.pointChange = Number(nepseRow.difference ?? 0);
+            this.marketIndex.percentageChange = Number(nepseRow.percentChange ?? 0);
+            if (Number(nepseRow.turnover) > 0) this.marketIndex.turnover = Number(nepseRow.turnover);
+            if (Number(nepseRow.volume) > 0) this.marketIndex.volume = Number(nepseRow.volume);
+            if (Number(nepseRow.noOfTransactions) > 0) this.marketIndex.noOfTransactions = Number(nepseRow.noOfTransactions);
+            if (Number(nepseRow.noOfTradedCompanies) > 0) this.marketIndex.noOfTradedCompanies = Number(nepseRow.noOfTradedCompanies);
+            if (Number(nepseRow.noOfGainers) >= 0) this.marketIndex.noOfGainers = Number(nepseRow.noOfGainers);
+            if (Number(nepseRow.noOfLosers) >= 0) this.marketIndex.noOfLosers = Number(nepseRow.noOfLosers);
+            if (Number(nepseRow.noOfUnchanged) >= 0) this.marketIndex.noOfUnchanged = Number(nepseRow.noOfUnchanged);
+            if (nepseRow.asOfDateString) this.marketIndex.asOfDateString = nepseRow.asOfDateString;
+          }
+          if (sensRow && Number(sensRow.indexValue) > 100) {
+            this.marketIndex.sensitiveIndex = Number(sensRow.indexValue);
+            this.marketIndex.sensitiveChange = Number(sensRow.difference ?? 0);
+            this.marketIndex.sensitivePctChange = Number(sensRow.percentChange ?? 0);
+          }
+          if (floatRow && Number(floatRow.indexValue) > 50) {
+            this.marketIndex.floatIndex = Number(floatRow.indexValue);
+            this.marketIndex.floatChange = Number(floatRow.difference ?? 0);
+            this.marketIndex.floatPctChange = Number(floatRow.percentChange ?? 0);
+          }
+          if (sensFloatRow && Number(sensFloatRow.indexValue) > 50) {
+            this.marketIndex.senFloatIndex = Number(sensFloatRow.indexValue);
+            this.marketIndex.senFloatChange = Number(sensFloatRow.difference ?? 0);
+            this.marketIndex.senFloatPctChange = Number(sensFloatRow.percentChange ?? 0);
+          }
+          this.syncNepseIndexQuote();
+        })
+        .catch(() => {});
+
+      // 2. Official 13 Sector Sub-Indices (independent fast stream)
+      const subTask = fetchWithTimeout("https://www.nepalipaisa.com/api/GetSubIndexLive", 1600)
+        .then(async (subRes) => {
+          if (!subRes || !subRes.ok) return;
+          const subJson = await subRes.json();
+          const subRows = Array.isArray(subJson?.result) ? subJson.result : [];
+          if (subRows.length > 0) {
+            this.marketIndex.subIndices = subRows.map((r) => ({
+              name: r.indexName,
+              value: Number(r.indexValue || 0),
+              pointChange: Number(r.difference || 0),
+              change: Number(r.percentChange || 0),
+              turnover: Number(r.turnover || 0),
+              gainers: Number(r.noOfGainers || 0),
+              losers: Number(r.noOfLosers || 0)
+            }));
+          }
+        })
+        .catch(() => {});
+
+      // 3. MeroLagani Live Market Quotes (independent fast stream)
+      const meroTask = cheerio
+        ? fetchWithTimeout("https://merolagani.com/LatestMarket.aspx", 1800)
+            .then(async (res) => {
+              if (!res || !res.ok) return;
+              const html = await res.text();
+              const $ = cheerio.load(html);
+              let updatedCount = 0;
+
+              $("table.live-trading tbody tr, table.sortable tbody tr").each((_, row) => {
+                const tds = $(row).find("td");
+                if (tds.length < 7) return;
+                const sym = $(tds[0]).find("a").text().trim().toUpperCase();
+                if (!sym) return;
+
+                const ltp = parseFloat($(tds[1]).text().replace(/,/g, ""));
+                const pctChange = parseFloat($(tds[2]).text().replace(/,/g, "")) || 0;
+                const parsedHigh = parseFloat($(tds[3]).text().replace(/,/g, "")) || ltp;
+                const parsedLow = parseFloat($(tds[4]).text().replace(/,/g, "")) || ltp;
+                const parsedOpen = parseFloat($(tds[5]).text().replace(/,/g, "")) || ltp;
+                const volume = parseFloat($(tds[6]).text().replace(/,/g, "")) || 0;
+                const parsedTurnover = tds.length >= 8 ? parseFloat($(tds[7]).text().replace(/,/g, "")) : 0;
+
+                if (!isNaN(ltp) && ltp > 0) {
+                  const prevClose = pctChange !== 0 ? round2(ltp / (1 + pctChange / 100)) : parsedOpen || ltp;
+                  const rawTitle = $(tds[0]).find("a").attr("title") || sym;
+                  const existing = this.quotes.get(sym) || {};
+                  const priceChanged =
+                    existing.ltp !== ltp ||
+                    existing.volume !== volume ||
+                    existing.high !== parsedHigh ||
+                    existing.low !== parsedLow;
+                  const sanitized = this.sanitizeAndEnrichQuote({
+                    ...existing,
+                    symbol: sym,
+                    companyName: existing.companyName || rawTitle,
+                    ltp,
+                    open: parsedOpen,
+                    high: parsedHigh,
+                    low: parsedLow,
+                    prevClose,
+                    volume,
+                    turnover: parsedTurnover > 0 ? parsedTurnover : round2(volume * ltp),
+                    source: "MEROLAGANI_LIVE",
+                    updatedAt: new Date().toISOString()
+                  });
+
+                  if (sanitized) {
+                    this.quotes.set(sym, sanitized);
+                    if (priceChanged) {
+                      this.reanchorHistoryToLiveQuote(sym, sanitized.ltp, sanitized.prevClose, sanitized.high, sanitized.low, sanitized.volume);
+                    }
+                    updatedCount++;
+                  }
+                }
+              });
+
+              if (updatedCount > 10) {
+                meroUpdated = updatedCount;
+                this.applyMeroSharePortfolioLocks();
+                this.syncNepseIndexQuote();
+                this.dataSource = "MEROLAGANI_LIVE";
+                this.saveLiveDiskCache();
+              }
+            })
+            .catch(() => {})
+        : Promise.resolve();
+
+      // 4. ShareSansar Concurrent Fallback (runs in parallel so we never wait 2x sequentially)
+      const ssTask = cheerio
+        ? fetchWithTimeout("https://www.sharesansar.com/today-share-price", 1800)
+            .then(async (res) => {
+              if (!res || !res.ok || meroUpdated > 10) return;
+              const html = await res.text();
+              if (meroUpdated > 10) return;
+              const $ = cheerio.load(html);
+              let count = 0;
+              $("table tbody tr").each((_, row) => {
+                const tds = $(row).find("td");
+                if (tds.length < 8) return;
+                const sym = $(tds[1]).text().trim().toUpperCase();
+                const high = parseFloat($(tds[3]).text().replace(/,/g, "")) || 0;
+                const low = parseFloat($(tds[4]).text().replace(/,/g, "")) || 0;
+                const ltp = parseFloat($(tds[6]).text().replace(/,/g, ""));
+                const ptChange = parseFloat($(tds[7]).text().replace(/,/g, "")) || 0;
+                const volume = parseFloat($(tds[8])?.text()?.replace(/,/g, "")) || 0;
+                if (sym && !isNaN(ltp) && ltp > 0 && this.quotes.has(sym)) {
+                  const ex = this.quotes.get(sym);
+                  const priceChanged = ex.ltp !== ltp || ex.volume !== volume;
+                  const prevClose = round2(ltp - ptChange);
+                  const sanitized = this.sanitizeAndEnrichQuote({
+                    ...ex,
+                    ltp,
+                    high: high || ltp,
+                    low: low || ltp,
+                    prevClose,
+                    volume: volume || ex.volume,
+                    source: "SHARESANSAR_LIVE",
+                    updatedAt: new Date().toISOString()
+                  });
+                  if (sanitized) {
+                    this.quotes.set(sym, sanitized);
+                    if (priceChanged) {
+                      this.reanchorHistoryToLiveQuote(sym, sanitized.ltp, sanitized.prevClose, sanitized.high, sanitized.low, sanitized.volume);
+                    }
+                    count++;
+                  }
+                }
+              });
+              if (count > 5) {
+                this.applyMeroSharePortfolioLocks();
+                this.syncNepseIndexQuote();
+                this.dataSource = "SHARESANSAR_LIVE";
+                this.saveLiveDiskCache();
+              }
+            })
+            .catch(() => {})
+        : Promise.resolve();
+
+      await Promise.allSettled([idxTask, subTask, meroTask, ssTask]);
+    };
+
+    this._activeRefreshPromise = runBackgroundSync().finally(() => {
+      this._activeRefreshPromise = null;
+    });
+
+    // Bound foreground wait to 850ms max so slow external sites never block the UI response
+    await Promise.race([
+      this._activeRefreshPromise,
+      new Promise((resolve) => setTimeout(resolve, 850))
     ]);
-
-    // Tier 0A: Process Official Real-Time NEPSE Index
-    try {
-      const idxRes = idxOutcome.status === "fulfilled" ? idxOutcome.value : null;
-      if (idxRes && idxRes.ok) {
-        const idxJson = await idxRes.json();
-        const rows = Array.isArray(idxJson?.result) ? idxJson.result : [];
-        const nepseRow = rows.find((r) => String(r.indexName).toLowerCase() === "nepse");
-        const sensRow = rows.find((r) => String(r.indexName).toLowerCase() === "sensitive");
-        const floatRow = rows.find((r) => String(r.indexName).toLowerCase() === "float");
-        const sensFloatRow = rows.find((r) => String(r.indexName).toLowerCase().includes("sen. float"));
-
-        if (nepseRow && Number(nepseRow.indexValue) > 1000) {
-          this.marketIndex.nepseIndex = Number(nepseRow.indexValue);
-          this.marketIndex.previousValue = Number(nepseRow.previousValue || nepseRow.indexValue);
-          this.marketIndex.openingValue = Number(nepseRow.openingValue || nepseRow.indexValue);
-          this.marketIndex.dayHigh = Number(nepseRow.dayHigh || nepseRow.indexValue);
-          this.marketIndex.dayLow = Number(nepseRow.dayLow || nepseRow.indexValue);
-          this.marketIndex.pointChange = Number(nepseRow.difference ?? 0);
-          this.marketIndex.percentageChange = Number(nepseRow.percentChange ?? 0);
-          if (Number(nepseRow.turnover) > 0) this.marketIndex.turnover = Number(nepseRow.turnover);
-          if (Number(nepseRow.volume) > 0) this.marketIndex.volume = Number(nepseRow.volume);
-          if (Number(nepseRow.noOfTransactions) > 0) this.marketIndex.noOfTransactions = Number(nepseRow.noOfTransactions);
-          if (Number(nepseRow.noOfTradedCompanies) > 0) this.marketIndex.noOfTradedCompanies = Number(nepseRow.noOfTradedCompanies);
-          if (Number(nepseRow.noOfGainers) >= 0) this.marketIndex.noOfGainers = Number(nepseRow.noOfGainers);
-          if (Number(nepseRow.noOfLosers) >= 0) this.marketIndex.noOfLosers = Number(nepseRow.noOfLosers);
-          if (Number(nepseRow.noOfUnchanged) >= 0) this.marketIndex.noOfUnchanged = Number(nepseRow.noOfUnchanged);
-          if (nepseRow.asOfDateString) this.marketIndex.asOfDateString = nepseRow.asOfDateString;
-        }
-        if (sensRow && Number(sensRow.indexValue) > 100) {
-          this.marketIndex.sensitiveIndex = Number(sensRow.indexValue);
-          this.marketIndex.sensitiveChange = Number(sensRow.difference ?? 0);
-          this.marketIndex.sensitivePctChange = Number(sensRow.percentChange ?? 0);
-        }
-        if (floatRow && Number(floatRow.indexValue) > 50) {
-          this.marketIndex.floatIndex = Number(floatRow.indexValue);
-          this.marketIndex.floatChange = Number(floatRow.difference ?? 0);
-          this.marketIndex.floatPctChange = Number(floatRow.percentChange ?? 0);
-        }
-        if (sensFloatRow && Number(sensFloatRow.indexValue) > 50) {
-          this.marketIndex.senFloatIndex = Number(sensFloatRow.indexValue);
-          this.marketIndex.senFloatChange = Number(sensFloatRow.difference ?? 0);
-          this.marketIndex.senFloatPctChange = Number(sensFloatRow.percentChange ?? 0);
-        }
-      }
-    } catch (_) {}
-
-    // Tier 0B: Process Official 13 Sector Sub-Indices
-    try {
-      const subRes = subOutcome.status === "fulfilled" ? subOutcome.value : null;
-      if (subRes && subRes.ok) {
-        const subJson = await subRes.json();
-        const subRows = Array.isArray(subJson?.result) ? subJson.result : [];
-        if (subRows.length > 0) {
-          this.marketIndex.subIndices = subRows.map((r) => ({
-            name: r.indexName,
-            value: Number(r.indexValue || 0),
-            pointChange: Number(r.difference || 0),
-            change: Number(r.percentChange || 0),
-            turnover: Number(r.turnover || 0),
-            gainers: Number(r.noOfGainers || 0),
-            losers: Number(r.noOfLosers || 0)
-          }));
-        }
-      }
-    } catch (_) {}
-
-    if (!cheerio) return;
-
-    // Tier 1: Process Merolagani Live Market (already fetched in parallel)
-    try {
-      const res = meroOutcome.status === "fulfilled" ? meroOutcome.value : null;
-      if (res && res.ok) {
-        const html = await res.text();
-        const $ = cheerio.load(html);
-        let updatedCount = 0;
-
-        $("table.live-trading tbody tr, table.sortable tbody tr").each((_, row) => {
-          const tds = $(row).find("td");
-          if (tds.length < 7) return;
-          const sym = $(tds[0]).find("a").text().trim().toUpperCase();
-          if (!sym) return;
-
-          const ltp = parseFloat($(tds[1]).text().replace(/,/g, ""));
-          const pctChange = parseFloat($(tds[2]).text().replace(/,/g, "")) || 0;
-          const parsedHigh = parseFloat($(tds[3]).text().replace(/,/g, "")) || ltp;
-          const parsedLow = parseFloat($(tds[4]).text().replace(/,/g, "")) || ltp;
-          const parsedOpen = parseFloat($(tds[5]).text().replace(/,/g, "")) || ltp;
-          const volume = parseFloat($(tds[6]).text().replace(/,/g, "")) || 0;
-          const parsedTurnover = tds.length >= 8 ? parseFloat($(tds[7]).text().replace(/,/g, "")) : 0;
-
-          if (!isNaN(ltp) && ltp > 0) {
-            const prevClose = pctChange !== 0 ? round2(ltp / (1 + pctChange / 100)) : parsedOpen || ltp;
-            const rawTitle = $(tds[0]).find("a").attr("title") || sym;
-            const existing = this.quotes.get(sym) || {};
-            const sanitized = this.sanitizeAndEnrichQuote({
-              ...existing,
-              symbol: sym,
-              companyName: existing.companyName || rawTitle,
-              ltp,
-              open: parsedOpen,
-              high: parsedHigh,
-              low: parsedLow,
-              prevClose,
-              volume,
-              turnover: parsedTurnover > 0 ? parsedTurnover : round2(volume * ltp),
-              source: "MEROLAGANI_LIVE",
-              updatedAt: new Date().toISOString()
-            });
-
-            if (sanitized) {
-              this.quotes.set(sym, sanitized);
-              this.reanchorHistoryToLiveQuote(sym, sanitized.ltp, sanitized.prevClose, sanitized.high, sanitized.low, sanitized.volume);
-              updatedCount++;
-            }
-          }
-        });
-
-        this.applyMeroSharePortfolioLocks();
-        this.syncNepseIndexQuote();
-        if (updatedCount > 10) {
-          this.dataSource = "MEROLAGANI_LIVE";
-          this.saveLiveDiskCache();
-          return;
-        }
-      }
-    } catch (_) {}
-
-    // Tier 2: Sharesansar Fallback (2.2s fast timeout)
-    try {
-      const res = await fetchWithTimeout("https://www.sharesansar.com/today-share-price", 2200);
-      if (res && res.ok) {
-        const html = await res.text();
-        const $ = cheerio.load(html);
-        let count = 0;
-        $("table tbody tr").each((_, row) => {
-          const tds = $(row).find("td");
-          if (tds.length < 8) return;
-          const sym = $(tds[1]).text().trim().toUpperCase();
-          const high = parseFloat($(tds[3]).text().replace(/,/g, "")) || 0;
-          const low = parseFloat($(tds[4]).text().replace(/,/g, "")) || 0;
-          const ltp = parseFloat($(tds[6]).text().replace(/,/g, ""));
-          const ptChange = parseFloat($(tds[7]).text().replace(/,/g, "")) || 0;
-          const volume = parseFloat($(tds[8])?.text()?.replace(/,/g, "")) || 0;
-          if (sym && !isNaN(ltp) && ltp > 0 && this.quotes.has(sym)) {
-            const ex = this.quotes.get(sym);
-            const prevClose = round2(ltp - ptChange);
-            const sanitized = this.sanitizeAndEnrichQuote({
-              ...ex,
-              ltp,
-              high: high || ltp,
-              low: low || ltp,
-              prevClose,
-              volume: volume || ex.volume,
-              source: "SHARESANSAR_LIVE",
-              updatedAt: new Date().toISOString()
-            });
-            if (sanitized) {
-              this.quotes.set(sym, sanitized);
-              this.reanchorHistoryToLiveQuote(sym, sanitized.ltp, sanitized.prevClose, sanitized.high, sanitized.low, sanitized.volume);
-              count++;
-            }
-          }
-        });
-        this.applyMeroSharePortfolioLocks();
-        this.syncNepseIndexQuote();
-        if (count > 5) {
-          this.dataSource = "SHARESANSAR_LIVE";
-          this.saveLiveDiskCache();
-        }
-      }
-    } catch (_) {}
   }
 
   async getMarketSummary() {
@@ -1240,7 +1276,7 @@ class NepseProvider {
     const sym = (symbol || "").trim().toUpperCase();
     if (!sym) return null;
     if (sym !== "NEPSE" && !realDataEngine.getCached(sym) && this.isMarketOpenNow().isOpen) {
-      await this.ensureSymbolRealData(sym, false);
+      this.ensureSymbolRealData(sym, false).catch(() => {});
     }
     const q = this.quotes.get(sym) || null;
     if (!q) return null;

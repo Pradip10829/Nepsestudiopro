@@ -3358,8 +3358,12 @@
           }).join('');
         }
 
-        populateSectorDropdown();
-        populateCompareDropdown();
+        if (!window.__dropdownsPopulated || window.__lastSignalsCount !== allSignals.length) {
+          populateSectorDropdown();
+          populateCompareDropdown();
+          window.__dropdownsPopulated = true;
+          window.__lastSignalsCount = allSignals.length;
+        }
         updateCategoryCounts();
         renderLiveAlertBanner();
         renderScreenerTable();
@@ -3372,14 +3376,19 @@
           const activeEl = document.activeElement;
           const isTypingInCalc = activeEl && (activeEl.id === 'calcBuyPrice' || activeEl.id === 'calcSellPrice' || activeEl.id === 'calcKitta' || activeEl.id === 'calcHoldPeriod');
           if (!isTypingInCalc) {
-            selectStock(selectedSymbol, false, !isManual && activeChartBars.length > 0 && activeChartSignal?.symbol === selectedSymbol);
+            const matchedSig = allSignals.find(s => s.symbol === selectedSymbol);
+            const hasSameChart = activeChartBars.length > 0 && activeChartSignal?.symbol === selectedSymbol && activeChartSignal?.ltp === matchedSig?.ltp;
+            selectStock(selectedSymbol, false, hasSameChart);
           }
         }
 
         renderNewsList(data.news || [], data.newsUpdatedAt, data.newsLiveCount);
-        checkWhatsAppStatus();
-        if (typeof loadMeroPortfolioStatus === 'function') {
-          loadMeroPortfolioStatus(isManual);
+        if (!window.__initialAuxLoaded || isManual) {
+          window.__initialAuxLoaded = true;
+          checkWhatsAppStatus();
+          if (typeof loadMeroPortfolioStatus === 'function') {
+            loadMeroPortfolioStatus(isManual);
+          }
         }
       } catch (err) {
         console.error('Dashboard load error:', err);
@@ -6773,9 +6782,9 @@
     loadDashboard(false);
     setInterval(() => {
       if (window.lastMarketIsOpen) {
-        loadDashboard(true);
+        loadDashboard(false);
       }
-    }, 15000);
+    }, 10000);
   </script>
 </body>
 </html>
