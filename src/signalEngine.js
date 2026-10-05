@@ -3046,74 +3046,478 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
   const ex2Obj = executionMatrix.exits.exit2;
 
   // ============================================================================
-  // EXACT SINGLE-PRICE BUY & SELL EXECUTION ENGINE (STRICT NON-CONFLICTING LADDER)
-  // Ladder Rule: Hard Stop-Loss < Support Dip Buy < Main Buy Price < Target 1 < Target 2
+  // 6-SIGNAL MASTER CONFLUENCE & FINAL CONSENSUS ENGINE (UNIFIED BUY/SELL/SL)
+  // Combines all 6 independent engines using Institutional Weighted Confluence
+  // Clustering + Hard Veto Rules so every signal yields ONE Final Result.
   // ============================================================================
+  // 1. Signal 1: Daily Trend & Momentum (20% Weight)
+  const sig1Score = Math.min(
+    98,
+    Math.max(
+      15,
+      Math.round(
+        50 +
+          (currentPrice >= ema20 ? 12 : -10) +
+          (ema20 >= sma50 ? 10 : -8) +
+          (supertrend.direction === "BULLISH" ? 12 : -12) +
+          (macd.histogram >= 0 ? 6 : -6) +
+          (rsi14 >= 38 && rsi14 <= 65 ? 8 : rsi14 > 72 ? -14 : rsi14 <= 34 && inMacroUptrend ? 6 : -4)
+      )
+    )
+  );
+  const sig1Buy = round2(currentPrice <= ema20 ? Math.max(sr.support1, currentPrice * 0.99) : Math.min(ema20, currentPrice * 0.985));
+  const sig1Target = round2(Math.max(ex1Obj.price, currentPrice * 1.05));
+  const sig1Stop = stopLossNum;
+  const sig1Dir = sig1Score >= 62 ? "BULLISH" : sig1Score <= 42 ? "BEARISH" : "NEUTRAL";
+  const sig1Verdict =
+    sig1Score >= 74 && antiChasePassed
+      ? "BUY NOW"
+      : sig1Score >= 58
+        ? "BUY ON DIP"
+        : sig1Score <= 38
+          ? "SELL / AVOID"
+          : "HOLD";
+
+  // 2. Signal 2: Smart Money Concepts SMC v2.0 (22% Weight)
+  const smcScoreVal = Number(smc?.smcScore || 55);
+  const smcOteBuy = Number(smc?.optimalTradeEntry?.idealBuyPrice) > 0
+    ? Number(smc.optimalTradeEntry.idealBuyPrice)
+    : Number(smc?.bullishOB?.midpoint) > 0
+      ? Number(smc.bullishOB.midpoint)
+      : round2(sr.support1);
+  const smcBuy = round2(Math.min(currentPrice, Math.max(currentPrice * 0.935, smcOteBuy)));
+  const smcTarget = round2(
+    Math.max(
+      currentPrice * 1.05,
+      Number(smc?.optimalTradeEntry?.target1) || Number(smc?.bearishOB?.low) || ex1Obj.price
+    )
+  );
+  const smcStop = round2(
+    Math.min(
+      smcBuy * 0.965,
+      Math.max(currentPrice * 0.91, Number(smc?.optimalTradeEntry?.stopLoss) || stopLossNum)
+    )
+  );
+  const smcDir = smcScoreVal >= 62 ? "BULLISH" : smcScoreVal <= 43 ? "BEARISH" : "NEUTRAL";
+  const smcVerdict =
+    smcScoreVal >= 72 && (smc?.rangePositionPct || 50) <= 58
+      ? "BUY NOW"
+      : smcScoreVal >= 56
+        ? "BUY ON DIP"
+        : (smc?.rangePositionPct || 50) >= 76 || smcScoreVal <= 40
+          ? "SELL / BOOK"
+          : "HOLD";
+
+  // 3. Signal 3: Weekly Multi-Timeframe Blueprint Sun–Thu (20% Weight)
+  const wkScoreVal = Number(weeklyTrading?.weeklyScore || 55);
+  const wkRawBuy = Number(weeklyTrading?.sundayMondayBuyZone?.idealBuyPrice) || sig1Buy;
+  const wkBuy = round2(Math.min(currentPrice, Math.max(currentPrice * 0.94, wkRawBuy)));
+  const wkTarget = round2(
+    Math.max(
+      currentPrice * 1.05,
+      Number(weeklyTrading?.wednesdayThursdaySellZone?.target1) || ex1Obj.price
+    )
+  );
+  const wkStop = round2(
+    Math.min(
+      wkBuy * 0.965,
+      Math.max(currentPrice * 0.91, Number(weeklyTrading?.weeklyStopLoss) || stopLossNum)
+    )
+  );
+  const wkDir = wkScoreVal >= 60 ? "BULLISH" : wkScoreVal <= 42 ? "BEARISH" : "NEUTRAL";
+  const wkVerdict =
+    wkScoreVal >= 72 && antiChasePassed
+      ? "BUY NOW"
+      : wkScoreVal >= 56
+        ? "BUY ON DIP"
+        : wkScoreVal <= 40
+          ? "SELL / REDUCE"
+          : "HOLD";
+
+  // 4. Signal 4: Wyckoff Volume, VWAP & Institutional Broker Flow (15% Weight)
+  const sig4Score = Math.min(
+    96,
+    Math.max(
+      18,
+      Math.round(
+        48 +
+          (currentPrice >= smartMoney.vwap20 ? 12 : -8) +
+          (currentPrice >= volumeProfile.poc ? 10 : -6) +
+          (volRatio >= 1.2 && candleCLV >= 0.52 ? 12 : volRatio >= 1.2 && candleCLV < 0.38 ? -12 : 2) +
+          (smartMoney.brokerConcentrationPct >= 30 ? 8 : 2) +
+          (smartMoney.mfi14 >= 42 && smartMoney.mfi14 <= 72 ? 6 : smartMoney.mfi14 > 78 ? -10 : -2)
+      )
+    )
+  );
+  const vwapOrPoc = volumeProfile.poc > 0 && volumeProfile.poc <= currentPrice
+    ? volumeProfile.poc
+    : smartMoney.vwap20 > 0 && smartMoney.vwap20 <= currentPrice
+      ? smartMoney.vwap20
+      : round2(currentPrice * 0.982);
+  const sig4Buy = round2(Math.min(currentPrice, Math.max(currentPrice * 0.94, vwapOrPoc)));
+  const sig4Target = round2(Math.max(currentPrice * 1.05, volumeProfile.vah || sr.resistance1));
+  const sig4Stop = round2(Math.min(sig4Buy * 0.965, Math.max(currentPrice * 0.915, volumeProfile.val || stopLossNum)));
+  const sig4Dir = sig4Score >= 60 ? "BULLISH" : sig4Score <= 42 ? "BEARISH" : "NEUTRAL";
+  const sig4Verdict =
+    sig4Score >= 72 && volRatio >= 1.15
+      ? "BUY NOW"
+      : sig4Score >= 56
+        ? "BUY ON DIP"
+        : sig4Score <= 40
+          ? "DISTRIBUTION"
+          : "HOLD";
+
+  // 5. Signal 5: Classical Chart & Candlestick Pattern CMT (10% Weight)
+  const patBonus = Number(chartPatternCMT?.patternScoreBonus || 0);
+  const sig5Score = Math.min(
+    95,
+    Math.max(
+      20,
+      Math.round(
+        54 +
+          patBonus * 4 +
+          (candleCLV >= 0.58 ? 10 : candleCLV <= 0.35 ? -10 : 0) +
+          (chartPatternCMT?.falseBreakoutTrap ? -18 : 0) +
+          (divergence?.includes("BULLISH") ? 10 : divergence?.includes("BEARISH") ? -10 : 0)
+      )
+    )
+  );
+  const sig5Buy = round2(
+    chartPatternCMT?.throwbackEntry && chartPatternCMT.patternTriggerPrice > 0
+      ? Math.min(currentPrice, chartPatternCMT.patternTriggerPrice)
+      : sig1Buy
+  );
+  const sig5Target = round2(
+    chartPatternCMT?.measuredTarget && chartPatternCMT.measuredTarget > currentPrice * 1.03
+      ? chartPatternCMT.measuredTarget
+      : target1Num
+  );
+  const sig5Stop = round2(
+    chartPatternCMT?.protectiveStopPrice && chartPatternCMT.protectiveStopPrice < sig5Buy
+      ? Math.max(currentPrice * 0.91, chartPatternCMT.protectiveStopPrice)
+      : stopLossNum
+  );
+  const sig5Dir = sig5Score >= 60 ? "BULLISH" : sig5Score <= 42 ? "BEARISH" : "NEUTRAL";
+  const sig5Verdict =
+    sig5Score >= 70
+      ? "BREAKOUT BUY"
+      : sig5Score >= 56
+        ? "BUY ON THROWBACK"
+        : sig5Score <= 40
+          ? "BEARISH PATTERN"
+          : "NEUTRAL BASE";
+
+  // 6. Signal 6: Fundamental Valuation & SEBON Safety (13% Weight)
+  const sig6Score = Math.min(98, Math.max(18, Math.round(Number(longTerm?.longTermScore || 55))));
+  const sig6Buy = round2(
+    Math.min(
+      currentPrice,
+      Math.max(
+        currentPrice * 0.93,
+        sma200 > 0 && sma200 <= currentPrice ? sma200 : sig1Buy
+      )
+    )
+  );
+  const sig6Target = round2(
+    Math.max(
+      currentPrice * 1.06,
+      fundamentals.compositeFairValue > currentPrice * 1.04
+        ? Math.min(currentPrice * 1.22, fundamentals.compositeFairValue)
+        : ex2Obj.price
+    )
+  );
+  const sig6Stop = round2(Math.min(sig6Buy * 0.955, stopLossNum));
+  const sig6Dir = sig6Score >= 62 && fundamentalSafetyPassed ? "BULLISH" : !fundamentalSafetyPassed || sig6Score <= 42 ? "BEARISH" : "NEUTRAL";
+  const sig6Verdict =
+    sig6Score >= 75 && fundamentalSafetyPassed
+      ? "STRONG ACCUMULATE"
+      : sig6Score >= 58 && fundamentalSafetyPassed
+        ? "VALUE BUY ON DIP"
+        : !fundamentalSafetyPassed
+          ? "HIGH P/E OR RISK"
+          : "FAIR VALUE HOLD";
+
+  const individualSignals = [
+    {
+      id: "DAILY_QUANT",
+      name: "1. Daily Trend & Momentum",
+      techUsed: "EMA20/50 + SuperTrend + MACD + RSI(14)",
+      weightPct: 20,
+      score: sig1Score,
+      direction: sig1Dir,
+      verdict: sig1Verdict,
+      buyPrice: sig1Buy,
+      sellTarget: sig1Target,
+      stopLoss: sig1Stop,
+      reason: `SuperTrend ${supertrend.direction} (Rs ${supertrend.value}) | EMA20 Rs ${ema20} | RSI ${rsi14}`
+    },
+    {
+      id: "SMC_INSTITUTIONAL",
+      name: "2. Smart Money Concepts (SMC v2.0)",
+      techUsed: "BOS/CHoCH + Order Blocks + OTE 62-79% + FVG",
+      weightPct: 22,
+      score: smcScoreVal,
+      direction: smcDir,
+      verdict: smcVerdict,
+      buyPrice: smcBuy,
+      sellTarget: smcTarget,
+      stopLoss: smcStop,
+      reason: `${smc?.marketStructure || "RANGING"} | ${smc?.pricingZone || "EQUILIBRIUM"} (${smc?.rangePositionPct ?? 50}% range) | OTE Rs ${smcBuy}`
+    },
+    {
+      id: "WEEKLY_MTF",
+      name: "3. Weekly Multi-Timeframe (Sun–Thu)",
+      techUsed: "1W Candlesticks + W-EMA4/10 + PWH/PWL",
+      weightPct: 20,
+      score: wkScoreVal,
+      direction: wkDir,
+      verdict: wkVerdict,
+      buyPrice: wkBuy,
+      sellTarget: wkTarget,
+      stopLoss: wkStop,
+      reason: `${weeklyTrading?.weeklyTrend || "NEUTRAL"} | 1W RSI ${weeklyTrading?.weeklyRsi14 ?? 50} | Sun–Mon Zone Rs ${wkBuy}`
+    },
+    {
+      id: "WYCKOFF_FLOW",
+      name: "4. Wyckoff Volume, VWAP & Brokers",
+      techUsed: "20D VWAP + 60D Volume POC + RVOL + Floorsheet",
+      weightPct: 15,
+      score: sig4Score,
+      direction: sig4Dir,
+      verdict: sig4Verdict,
+      buyPrice: sig4Buy,
+      sellTarget: sig4Target,
+      stopLoss: sig4Stop,
+      reason: `VWAP Rs ${smartMoney.vwap20} | POC Rs ${volumeProfile.poc} | Vol ${volRatio}x | Buyers #${smartMoney.topBuyBrokers.slice(0, 2).join(", #")}`
+    },
+    {
+      id: "CMT_PATTERN",
+      name: "5. Chart & Candle Structure (CMT)",
+      techUsed: "Breakouts + Throwbacks + Multi-Bar Geometry",
+      weightPct: 10,
+      score: sig5Score,
+      direction: sig5Dir,
+      verdict: sig5Verdict,
+      buyPrice: sig5Buy,
+      sellTarget: sig5Target,
+      stopLoss: sig5Stop,
+      reason: `${chartPatternCMT?.multiBarPattern || candlePattern} | Candle CLV ${Math.round(candleCLV * 100)}%`
+    },
+    {
+      id: "FUNDAMENTAL_VAL",
+      name: "6. Fundamental Valuation & Safety",
+      techUsed: "Sector P/E Ratio + ROE + 5Y Div + Graham Value",
+      weightPct: 13,
+      score: sig6Score,
+      direction: sig6Dir,
+      verdict: sig6Verdict,
+      buyPrice: sig6Buy,
+      sellTarget: sig6Target,
+      stopLoss: sig6Stop,
+      reason: `P/E ${fundamentals.pe}x (Sector ${fundamentals.sectorPE}x) | ROE ${fundamentals.roe}% | Fair Value Rs ${fundamentals.compositeFairValue}`
+    }
+  ];
+
+  const masterWeightedScore = Math.round(
+    individualSignals.reduce((acc, s) => acc + (s.score * s.weightPct) / 100, 0)
+  );
+  const bullishSignalsCount = individualSignals.filter((s) => s.direction === "BULLISH").length;
+  const bearishSignalsCount = individualSignals.filter((s) => s.direction === "BEARISH").length;
+  const neutralSignalsCount = individualSignals.length - bullishSignalsCount - bearishSignalsCount;
+  const dominantCount = Math.max(bullishSignalsCount, bearishSignalsCount, neutralSignalsCount);
+  const confluenceAgreementPct = Math.round(((bullishSignalsCount >= bearishSignalsCount ? bullishSignalsCount + neutralSignalsCount * 0.5 : bearishSignalsCount + neutralSignalsCount * 0.5) / individualSignals.length) * 100);
+
+  // ============================================================================
+  // UNIFIED CONFLUENCE PRICE CLUSTERING (COMBINING ALL 6 BUY/SELL/SL LEVELS)
+  // ============================================================================
+  // Weighted Confluence Pullback/Dip Buy Price across all 6 engines
+  const rawConfluenceDipBuy = round2(
+    sig1Buy * 0.22 +
+      smcBuy * 0.26 +
+      wkBuy * 0.22 +
+      sig4Buy * 0.18 +
+      sig5Buy * 0.06 +
+      sig6Buy * 0.06
+  );
+  const boundedConfluenceDipBuy = round2(
+    Math.min(
+      currentPrice <= ema20 ? currentPrice : currentPrice * 0.992,
+      Math.max(currentPrice * 0.945, rawConfluenceDipBuy)
+    )
+  );
+
+  // Exact Buy Price: If Immediate Buy passed all vetoes, buy at LTP; if Immediate Sell, wait for deep support; else use Confluence Dip Buy
   const exactBuyPrice = isImmediateBuy
     ? currentPrice
     : isImmediateSell
-      ? round2(sr.support1)
-      : buyCategory === "🟢 BUY ON DIP"
-        ? currentPrice <= ema20
-          ? currentPrice
-          : round2(Math.min(ema20, currentPrice * 0.985))
-        : round2(sr.support1);
+      ? round2(Math.min(sr.support1, boundedConfluenceDipBuy))
+      : buyCategory === "🟢 BUY ON DIP" && currentPrice <= ema20 && currentPrice <= boundedConfluenceDipBuy * 1.008
+        ? currentPrice
+        : boundedConfluenceDipBuy;
 
-  // Support Dip Buy must sit at a real support floor (Volume POC or ~2.8% below Main Buy)
-  // AND must ALWAYS be strictly ABOVE the Hard Stop-Loss so they never conflict.
-  const rawDipCandidate =
-    volumeProfile.poc > 0 && volumeProfile.poc < exactBuyPrice * 0.992 && volumeProfile.poc > stopLossNum * 1.015
-      ? volumeProfile.poc
-      : sr.support1 < exactBuyPrice * 0.992 && sr.support1 > stopLossNum * 1.015
-        ? sr.support1
-        : exactBuyPrice * 0.972;
+  // Support Dip Buy (Tranche 2 Backup) sits at the lower institutional demand floor (SMC OB Low / POC / S1)
+  const rawDipCandidate = round2(
+    Math.min(
+      smc?.bullishOB?.low > 0 && smc.bullishOB.low < exactBuyPrice ? smc.bullishOB.low : exactBuyPrice * 0.974,
+      volumeProfile.poc > 0 && volumeProfile.poc < exactBuyPrice * 0.992 ? volumeProfile.poc : sr.support1
+    )
+  );
+  const exactBackupDipPrice = round2(
+    Math.max(
+      exactBuyPrice * 0.955,
+      Math.min(exactBuyPrice * 0.984, rawDipCandidate > stopLossNum * 1.01 ? rawDipCandidate : exactBuyPrice * 0.974)
+    )
+  );
 
-  const exactBackupDipPrice = round2(Math.min(exactBuyPrice * 0.985, rawDipCandidate));
-
-  // Ensure Hard Stop-Loss is ALWAYS strictly below both Main Buy Price AND Support Dip Buy Price
+  // Unified Master Stop-Loss (Weighted Structural Invalidation below Confluence Dip Buy)
+  const rawConfluenceStop = round2(
+    sig1Stop * 0.28 + smcStop * 0.28 + wkStop * 0.24 + sig4Stop * 0.20
+  );
   const exactStopLossPrice = round2(
-    Math.min(stopLossNum, exactBackupDipPrice * 0.975, exactBuyPrice * 0.945)
+    Math.max(
+      exactBuyPrice * 0.925,
+      Math.min(rawConfluenceStop, exactBackupDipPrice * 0.976, exactBuyPrice * 0.955)
+    )
   );
   const exactStopLossPct = round2(((currentPrice - exactStopLossPrice) / currentPrice) * 100);
   const exactDipPct = round2(((exactBackupDipPrice - currentPrice) / currentPrice) * 100);
 
   const exactLongTermBuyPrice = round2(
     Math.min(
-      currentPrice,
+      exactBuyPrice,
       sma200 > 0 ? sma200 : ema20,
       volumeProfile.poc > 0 ? volumeProfile.poc : ema20
     )
   );
 
+  // Unified Master Sell Target 1 & Target 2 (Weighted Resistance + SEBON Minimum Net Profit Guarantee)
+  const rawConfluenceTarget1 = round2(
+    sig1Target * 0.26 + smcTarget * 0.26 + wkTarget * 0.24 + sig4Target * 0.14 + sig5Target * 0.10
+  );
+  const minProfitableTarget1 = round2(Math.max(currentPrice * 1.045, exactBuyPrice * 1.055));
   const exactSellTarget1 = isImmediateSell
     ? currentPrice
     : sellCategory === "🟠 SELL ON RALLY"
-      ? round2(Math.max(sr.resistance1, currentPrice * 1.025))
-      : ex1Obj.price;
+      ? round2(Math.max(sr.resistance1, currentPrice * 1.03))
+      : round2(Math.min(currentPrice * 1.18, Math.max(minProfitableTarget1, rawConfluenceTarget1)));
 
   const exactSellTarget1GainPct = round2(((exactSellTarget1 - currentPrice) / currentPrice) * 100);
 
   const exactSellTarget2 = isImmediateSell
-    ? round2(Math.max(sr.resistance1, currentPrice * 1.02))
-    : Math.max(ex2Obj.price, round2(exactSellTarget1 * 1.04));
+    ? round2(Math.max(sr.resistance1, currentPrice * 1.03))
+    : round2(Math.max(ex2Obj.price, sig6Target, exactSellTarget1 * 1.048));
 
   const exactSellTarget2GainPct = round2(((exactSellTarget2 - currentPrice) / currentPrice) * 100);
+
+  // Master Net Profit & Risk:Reward from Unified Buy Price (after ~0.95% SEBON + Broker + DP friction)
+  const unifiedGrossGainPct = round2(((exactSellTarget1 - exactBuyPrice) / exactBuyPrice) * 100);
+  const unifiedNetGainPct = round2(Math.max(0, (unifiedGrossGainPct - 0.95) * 0.925)); // After fees & 7.5% short-term CGT
+  const unifiedRiskPct = round2(Math.max(1.2, ((exactBuyPrice - exactStopLossPrice) / exactBuyPrice) * 100 + 0.45));
+  const unifiedNetRR = round2(Math.max(0.5, unifiedGrossGainPct - 0.95) / unifiedRiskPct);
+
+  // 5 Institutional Confluence & Veto Rules Checklist
+  const masterRules = [
+    {
+      rule: "Rule 1: 6-Engine Multi-Factor Consensus",
+      passed: masterWeightedScore >= 60 && bullishSignalsCount >= 3,
+      badge: `${bullishSignalsCount}/6 Bullish • ${masterWeightedScore}/100`,
+      detail: `Weighted across Daily (20%), SMC (22%), Weekly (20%), Wyckoff/Brokers (15%), CMT Pattern (10%), and Fundamentals (13%).`
+    },
+    {
+      rule: "Rule 2: SMC Premium & Anti-Chase Veto",
+      passed: antiChasePassed && (smc?.rangePositionPct ?? 50) <= 72,
+      badge: antiChasePassed && (smc?.rangePositionPct ?? 50) <= 72 ? "PASSED (Safe Zone)" : "VETO ACTIVE (Pullback Only)",
+      detail:
+        antiChasePassed && (smc?.rangePositionPct ?? 50) <= 72
+          ? `Price is in ${smc?.pricingZone || "Equilibrium"} (${smc?.rangePositionPct ?? 50}% of range, RSI ${rsi14}) — no overbought trap.`
+          : `Vetoed chasing at LTP (RSI ${rsi14}, Range ${smc?.rangePositionPct ?? 50}%) — entry anchored down to Confluence Dip Rs ${exactBuyPrice}.`
+    },
+    {
+      rule: "Rule 3: Daily + Weekly Multi-Timeframe Alignment",
+      passed: supertrend.direction === "BULLISH" || wkScoreVal >= 55,
+      badge: supertrend.direction === "BULLISH" && wkScoreVal >= 55 ? "1D + 1W ALIGNED" : supertrend.direction === "BULLISH" ? "1D BULL / 1W NEUTRAL" : "DEFENSIVE MODE",
+      detail: `Daily SuperTrend is ${supertrend.direction} (Rs ${supertrend.value}) & Weekly Structure is ${weeklyTrading?.weeklyTrend || "NEUTRAL"} (Score ${wkScoreVal}/100).`
+    },
+    {
+      rule: "Rule 4: Fundamental & Lock-In Capital Protection",
+      passed: fundamentalSafetyPassed,
+      badge: fundamentalSafetyPassed ? `SAFE (P/E ${fundamentals.pe}x)` : "SPECULATIVE CAUTION",
+      detail: `P/E ${fundamentals.pe}x vs Sector ${fundamentals.sectorPE}x | ROE ${fundamentals.roe}% | Lock-In Risk: ${fundamentals.lockInRisk}.`
+    },
+    {
+      rule: "Rule 5: SEBON Net Fee-Adjusted Risk:Reward",
+      passed: unifiedNetRR >= 1.45,
+      badge: `Net R:R 1 : ${unifiedNetRR}`,
+      detail: `From Unified Buy Rs ${exactBuyPrice} → Target 1 Rs ${exactSellTarget1} (+${unifiedGrossGainPct}% Gross / ~+${unifiedNetGainPct}% Net after SEBON, Broker & CGT) vs Stop Rs ${exactStopLossPrice}.`
+    }
+  ];
+
+  const rulesPassedCount = masterRules.filter((r) => r.passed).length;
+
+  let masterVerdict = "🔵 MASTER HOLD & TRAIL STOP-LOSS";
+  let masterActionCode = "HOLD";
+  let masterSummary = "";
+  if (isImmediateBuy) {
+    masterVerdict = `⚡ MASTER IMMEDIATE BUY (${bullishSignalsCount}/6 Signals Aligned • ${masterWeightedScore}/100)`;
+    masterActionCode = "IMMEDIATE_BUY";
+    masterSummary = `All ${rulesPassedCount}/5 institutional rules passed. Buy at Rs ${exactBuyPrice} (Backup Dip: Rs ${exactBackupDipPrice}), Target 1: Rs ${exactSellTarget1} (+${exactSellTarget1GainPct}%), Target 2: Rs ${exactSellTarget2}, Hard Stop-Loss: Rs ${exactStopLossPrice}.`;
+  } else if (isImmediateSell) {
+    masterVerdict = `🚨 MASTER IMMEDIATE SELL / BOOK PROFIT (Urgency ${sellUrgencyScore}/100)`;
+    masterActionCode = "IMMEDIATE_SELL";
+    masterSummary = `Veto/Exit triggered (${isTrueOverboughtClimax ? `Overbought Climax RSI ${rsi14}` : `Trend Breakdown < Rs ${ema20}`}). Sell/Book Profit at Rs ${currentPrice}; do not re-enter until Confluence Support Rs ${exactBuyPrice}.`;
+  } else if (buyCategory === "🟢 BUY ON DIP") {
+    masterVerdict = `🟢 MASTER BUY ON DIP @ Rs ${exactBuyPrice} (${bullishSignalsCount}/6 Bullish • ${masterWeightedScore}/100)`;
+    masterActionCode = "BUY_ON_DIP";
+    masterSummary = `Different engines (Daily Rs ${sig1Buy}, SMC OTE Rs ${smcBuy}, Weekly Rs ${wkBuy}, VWAP/POC Rs ${sig4Buy}) have been combined into ONE Unified Limit Buy at Rs ${exactBuyPrice}, Target 1: Rs ${exactSellTarget1} (+${unifiedGrossGainPct}%), Hard Stop: Rs ${exactStopLossPrice}.`;
+  } else if (sellCategory === "🟠 SELL ON RALLY") {
+    masterVerdict = `🟠 MASTER HOLD / SELL ON RALLY @ Rs ${exactSellTarget1}`;
+    masterActionCode = "SELL_ON_RALLY";
+    masterSummary = `Book 40%–50% profit on rally to Unified Resistance Rs ${exactSellTarget1}. Fresh buyers wait for pullback to Unified Support Rs ${exactBuyPrice} (Hard Stop: Rs ${exactStopLossPrice}).`;
+  } else {
+    masterVerdict = `🔵 MASTER HOLD / WAIT FOR Rs ${exactBuyPrice} (${masterWeightedScore}/100)`;
+    masterActionCode = "HOLD";
+    masterSummary = `Hold existing shares safely above Unified Stop-Loss Rs ${exactStopLossPrice}. For fresh entry, place limit bid only at Unified Confluence Support Rs ${exactBuyPrice} for Target Rs ${exactSellTarget1}.`;
+  }
+
+  const masterConsensus = {
+    masterVerdict,
+    masterActionCode,
+    masterScore: masterWeightedScore,
+    bullishSignalsCount,
+    neutralSignalsCount,
+    bearishSignalsCount,
+    totalSignals: individualSignals.length,
+    confluenceAgreementPct,
+    rulesPassedCount,
+    totalRules: masterRules.length,
+    unifiedBuyPrice: exactBuyPrice,
+    unifiedBackupDipPrice: exactBackupDipPrice,
+    unifiedTarget1: exactSellTarget1,
+    unifiedTarget2: exactSellTarget2,
+    unifiedStopLoss: exactStopLossPrice,
+    unifiedGrossGainPct,
+    unifiedNetGainPct,
+    unifiedNetRR,
+    masterSummary,
+    signals: individualSignals,
+    rules: masterRules
+  };
 
   const exactBuyHeadline = isImmediateBuy
     ? `BUY NOW @ Rs ${currentPrice}`
     : isImmediateSell
       ? `DO NOT BUY NOW (Wait for Rs ${exactBuyPrice})`
-      : buyCategory === "🟢 BUY ON DIP" && currentPrice <= ema20
+      : buyCategory === "🟢 BUY ON DIP" && currentPrice <= exactBuyPrice * 1.005
         ? `BUY IN DIP ZONE @ Rs ${currentPrice}`
         : `WAIT & BUY AT Rs ${exactBuyPrice}`;
 
   const exactBuySubtext = isImmediateBuy
-    ? `Buy ${t1Obj.kitta} kitta today at Rs ${currentPrice}`
+    ? `Unified 6-Signal Entry: Buy ${t1Obj.kitta} kitta today at Rs ${currentPrice}`
     : isImmediateSell
-      ? `Overheated/falling — wait until price drops to Rs ${exactBuyPrice}`
-      : buyCategory === "🟢 BUY ON DIP" && currentPrice <= ema20
-        ? `Price is already in dip zone below 20D Avg (Rs ${ema20}) — buy ${t1Obj.kitta} kitta @ Rs ${currentPrice}`
-        : `Wait for pullback — place Limit Buy in TMS at Rs ${exactBuyPrice} (20-Day Avg)`;
+      ? `Overheated/falling — wait until price drops to Unified Support Rs ${exactBuyPrice}`
+      : buyCategory === "🟢 BUY ON DIP" && currentPrice <= exactBuyPrice * 1.005
+        ? `Price is inside Unified Confluence Zone — buy ${t1Obj.kitta} kitta @ Rs ${currentPrice}`
+        : `6-Signal Confluence Pullback (Daily + SMC OTE + Weekly + POC) — Limit Buy at Rs ${exactBuyPrice}`;
 
   const exactSellHeadline = isImmediateSell
     ? `SELL NOW @ Rs ${currentPrice}`
@@ -3122,10 +3526,10 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
       : `SELL TARGET: Rs ${exactSellTarget1} (+${exactSellTarget1GainPct}%)`;
 
   const exactSellSubtext = isImmediateSell
-    ? `Sell 70%–100% immediately at Rs ${currentPrice} | Hard Stop-Loss: Rs ${exactStopLossPrice}`
+    ? `Sell 70%–100% immediately at Rs ${currentPrice} | Unified Stop-Loss: Rs ${exactStopLossPrice}`
     : sellCategory === "🟠 SELL ON RALLY"
-      ? `Book 50% profit at Rs ${exactSellTarget1} | Hard Stop-Loss: Rs ${exactStopLossPrice} (-${exactStopLossPct}%)`
-      : `Hold safely above Stop-Loss Rs ${exactStopLossPrice} (-${exactStopLossPct}%) and book profit at Rs ${exactSellTarget1}`;
+      ? `Book 50% profit at Rs ${exactSellTarget1} | Unified Stop-Loss: Rs ${exactStopLossPrice} (-${exactStopLossPct}%)`
+      : `Hold safely above Unified Stop Rs ${exactStopLossPrice} (-${exactStopLossPct}%) for Target Rs ${exactSellTarget1} (Net R:R 1:${unifiedNetRR})`;
 
   const exactExecution = {
     exactBuyPrice,
@@ -3143,7 +3547,10 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     exactStopLossPrice,
     exactStopLossPct,
     exactSellHeadline,
-    exactSellSubtext
+    exactSellSubtext,
+    unifiedGrossGainPct,
+    unifiedNetGainPct,
+    unifiedNetRR
   };
 
   let trafficLight = "🔵 HOLD / WAIT FOR SETUP";
@@ -3249,6 +3656,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     whySellBullets,
     whyBuyBullets,
     exactExecution,
+    masterConsensus,
     simpleAdvisor,
     longTerm,
     sectorChampion,

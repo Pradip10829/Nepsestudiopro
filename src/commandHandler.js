@@ -384,10 +384,22 @@ function getHelpMessage() {
 }
 
 function buildStockExecutiveSummary(a) {
-  const em = a.executionMatrix;
   const lt = a.longTerm;
   const sa = a.simpleAdvisor;
+  const mc = a.masterConsensus;
+  const mcLines = mc
+    ? `\n━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `🏆 *6-SIGNAL MASTER CONSENSUS (ALL ENGINES COMBINED)*\n` +
+      `• *Final Verdict:* *${mc.masterVerdict}*\n` +
+      `• *1️⃣ Unified Buy Price:* *NPR ${mc.unifiedBuyPrice}* (Dip Add: *NPR ${mc.unifiedBackupDipPrice}*)\n` +
+      `• *2️⃣ Unified Sell Targets:* *T1: NPR ${mc.unifiedTarget1}* (+${mc.unifiedGrossGainPct}% Gross / ~+${mc.unifiedNetGainPct}% Net) | *T2: NPR ${mc.unifiedTarget2}*\n` +
+      `• *3️⃣ Unified Stop-Loss:* *NPR ${mc.unifiedStopLoss}* (Net R:R *1 : ${mc.unifiedNetRR}* | Rules Passed: *${mc.rulesPassedCount}/${mc.totalRules}*)\n` +
+      (mc.signals || [])
+        .map((s) => `  ◦ _${s.name} (${s.weightPct}%):_ *${s.verdict}* (${s.score}/100) → Buy Rs ${s.buyPrice} | T1 Rs ${s.sellTarget}`)
+        .join("\n")
+    : "";
   return (
+    mcLines +
     `\n━━━━━━━━━━━━━━━━━━━━━━\n` +
     `📌 *FINAL SUMMARY (TL;DR — ${a.symbol})*\n` +
     `• *🚦 Today's Decision:* *${sa.trafficLight}* (Accuracy: *${a.accuracyGrade}* | No-Trap Checks: *${sa.noTrapFiltersPassedCount}/4 Passed*)\n` +

@@ -2161,6 +2161,20 @@
               <canvas id="priceChart" width="960" height="315"></canvas>
             </div>
 
+            <!-- 1A-0. MASTER 6-SIGNAL CONFLUENCE & FINAL CONSENSUS ENGINE (UNIFIED BUY/SELL/SL + RULES) -->
+            <div class="card" id="masterConsensusSection" style="border: 1.5px solid var(--green-border-strong); background: linear-gradient(145deg, var(--bg-card), var(--bg-subtle));">
+              <div class="card-header" style="padding:10px 14px; background:var(--green-soft); border-bottom:1px solid var(--green-border);">
+                <div class="card-title" style="font-size:13px;">
+                  <span>🎯 MASTER 6-SIGNAL CONFLUENCE &amp; FINAL RESULT ENGINE</span>
+                  <span class="badge badge-green mono" id="masterConsensusTopBadge">6 Engines Combined → 1 Final Decision</span>
+                </div>
+                <span class="text-muted mono" style="font-size:10.5px; font-weight:700;" id="masterAgreementBadge">Weighted Confluence + 5 Veto Rules</span>
+              </div>
+              <div class="card-body" id="masterConsensusBox" style="padding:12px 14px;">
+                Loading 6-Signal Master Confluence Engine...
+              </div>
+            </div>
+
             <!-- 1A. 10-SECOND KID-SIMPLE 3-BOX ACTION GUIDE (PRIMARY STUDENT LEVEL CLARITY) -->
             <div class="kid-simple-grid" id="kidSimpleGuideBox"></div>
 
@@ -2985,6 +2999,7 @@
       const researchCard = document.getElementById('stockResearchCard');
       const watchLeft = document.getElementById('watchLeftCol');
       const rightDock = document.getElementById('rightIntelligenceDock');
+      const masterSec = document.getElementById('masterConsensusSection');
       const kidBox = document.getElementById('kidSimpleGuideBox');
       const chartSec = document.getElementById('chartPlayerSection');
       const ovSec = document.getElementById('overviewBentoSection');
@@ -3004,6 +3019,7 @@
         if (researchCard) { researchCard.style.display = 'grid'; researchCard.style.gridTemplateColumns = ''; }
         if (watchLeft) watchLeft.style.display = 'flex';
         if (rightDock) { rightDock.style.display = 'flex'; rightDock.style.gridTemplateColumns = ''; }
+        if (masterSec) masterSec.style.display = 'block';
         if (kidBox) kidBox.style.display = 'grid';
         if (chartSec) chartSec.style.display = 'block';
         if (ovSec) ovSec.style.display = 'flex';
@@ -3025,6 +3041,7 @@
         if (researchCard) { researchCard.style.display = 'grid'; researchCard.style.gridTemplateColumns = ''; }
         if (watchLeft) watchLeft.style.display = 'flex';
         if (rightDock) { rightDock.style.display = 'flex'; rightDock.style.gridTemplateColumns = ''; }
+        if (masterSec) masterSec.style.display = 'none';
         if (kidBox) kidBox.style.display = 'none';
         if (chartSec) chartSec.style.display = 'none';
         if (ovSec) ovSec.style.display = 'none';
@@ -3070,6 +3087,7 @@
         if (researchCard) { researchCard.style.display = 'grid'; researchCard.style.gridTemplateColumns = ''; }
         if (watchLeft) watchLeft.style.display = 'flex';
         if (rightDock) { rightDock.style.display = 'flex'; rightDock.style.gridTemplateColumns = ''; }
+        if (masterSec) masterSec.style.display = 'block';
         if (kidBox) kidBox.style.display = 'grid';
         if (chartSec) chartSec.style.display = 'block';
         if (ovSec) ovSec.style.display = 'flex';
@@ -4285,6 +4303,131 @@
             <span class="kid-card-step" style="color:${isSellNow ? 'var(--red-dark)' : 'var(--accent-blue)'};">3. IF YOU ALREADY OWN SHARES (PROFIT &amp; SAFETY)</span>
             <div class="kid-card-big mono ${isSellNow ? 'text-red' : ''}">${box3Title}</div>
             <div class="kid-card-desc">${box3Desc}</div>
+          </div>
+        `;
+      }
+
+      // Render Master 6-Signal Confluence & Final Result Engine
+      const masterBoxEl = document.getElementById('masterConsensusBox');
+      const mc = s.masterConsensus || null;
+      if (masterBoxEl && mc) {
+        const topBadgeEl = document.getElementById('masterConsensusTopBadge');
+        const agreeBadgeEl = document.getElementById('masterAgreementBadge');
+        const isBullMaster = mc.masterActionCode === 'IMMEDIATE_BUY' || mc.masterActionCode === 'BUY_ON_DIP';
+        const isBearMaster = mc.masterActionCode === 'IMMEDIATE_SELL';
+        if (topBadgeEl) {
+          topBadgeEl.textContent = `${mc.bullishSignalsCount}/${mc.totalSignals} Bullish • Score ${mc.masterScore}/100`;
+          topBadgeEl.className = `badge mono ${isBearMaster ? 'badge-red' : isBullMaster ? 'badge-green' : 'badge-neutral'}`;
+        }
+        if (agreeBadgeEl) {
+          agreeBadgeEl.textContent = `${mc.rulesPassedCount}/${mc.totalRules} Rules Passed • Net R:R 1:${fmtNum(mc.unifiedNetRR, 2)}`;
+        }
+
+        const sigRowsHtml = (mc.signals || []).map(sig => {
+          const dCls = sig.direction === 'BULLISH' ? 'badge-green' : sig.direction === 'BEARISH' ? 'badge-red' : 'badge-neutral';
+          const sClr = sig.score >= 62 ? 'var(--green-main)' : sig.score <= 42 ? 'var(--red-main)' : 'var(--amber-main)';
+          return `
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:6px 8px;">
+                <div style="font-weight:800; font-size:11.5px; color:var(--text-main);">${sig.name}</div>
+                <div style="font-size:10px; color:var(--text-muted);">${sig.techUsed}</div>
+              </td>
+              <td class="mono" style="padding:6px 8px; font-size:11px; font-weight:700; color:var(--text-secondary);">${sig.weightPct}%</td>
+              <td style="padding:6px 8px;">
+                <span class="badge ${dCls}" style="font-size:9.5px;">${sig.verdict}</span>
+                <span class="mono" style="font-size:10.5px; font-weight:800; color:${sClr}; margin-left:4px;">${sig.score}/100</span>
+              </td>
+              <td class="mono" style="padding:6px 8px; font-size:11.5px; font-weight:800; color:var(--green-main);">Rs ${fmtNum(sig.buyPrice, 1)}</td>
+              <td class="mono" style="padding:6px 8px; font-size:11.5px; font-weight:800; color:var(--accent-blue);">Rs ${fmtNum(sig.sellTarget, 1)}</td>
+              <td class="mono" style="padding:6px 8px; font-size:11.5px; font-weight:700; color:var(--red-main);">Rs ${fmtNum(sig.stopLoss, 1)}</td>
+              <td style="padding:6px 8px; font-size:10.5px; color:var(--text-secondary);">${sig.reason}</td>
+            </tr>
+          `;
+        }).join('');
+
+        const rulesHtml = (mc.rules || []).map(r => `
+          <div style="padding:7px 9px; border-radius:8px; background:var(--bg-card); border:1px solid ${r.passed ? 'var(--green-border)' : 'var(--amber-border)'}; display:flex; flex-direction:column; gap:2px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+              <strong style="font-size:10.5px; color:${r.passed ? 'var(--green-main)' : 'var(--amber-main)'};">${r.passed ? '✅' : '✋'} ${r.rule}</strong>
+              <span class="badge ${r.passed ? 'badge-green-soft' : 'badge-neutral'} mono" style="font-size:9px;">${r.badge}</span>
+            </div>
+            <div style="font-size:10px; color:var(--text-secondary); line-height:1.35;">${r.detail}</div>
+          </div>
+        `).join('');
+
+        const bannerBorder = isBearMaster ? 'var(--red-border)' : isBullMaster ? 'var(--green-border-strong)' : 'var(--border-strong)';
+        const bannerBg = isBearMaster ? 'var(--red-soft)' : isBullMaster ? 'var(--green-soft)' : 'var(--bg-subtle)';
+        const bannerColor = isBearMaster ? 'var(--red-main)' : isBullMaster ? 'var(--green-main)' : 'var(--accent-blue)';
+
+        masterBoxEl.innerHTML = `
+          <!-- Master Final Verdict Banner -->
+          <div style="padding:10px 12px; border-radius:10px; border:1.5px solid ${bannerBorder}; background:${bannerBg}; margin-bottom:10px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px;">
+            <div style="flex:1; min-width:260px;">
+              <div style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:${bannerColor};">
+                🏆 FINAL COMBINED RESULT FOR ${s.symbol} (ALL 6 SIGNALS + 5 VETO RULES)
+              </div>
+              <div style="font-size:15px; font-weight:900; color:var(--text-main); margin-top:2px;">${mc.masterVerdict}</div>
+              <div style="font-size:11.5px; color:var(--text-secondary); margin-top:3px; line-height:1.4;">${mc.masterSummary}</div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(4, minmax(105px, 1fr)); gap:7px; min-width:440px;">
+              <div style="padding:7px 9px; border-radius:8px; background:var(--bg-card); border:1px solid var(--green-border); text-align:center;">
+                <div style="font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">1. Final Buy Price</div>
+                <div class="mono" style="font-size:14px; font-weight:900; color:var(--green-main);">Rs ${fmtNum(mc.unifiedBuyPrice, 1)}</div>
+                <div style="font-size:9.5px; color:var(--text-secondary);">Dip Add: Rs ${fmtNum(mc.unifiedBackupDipPrice, 1)}</div>
+              </div>
+              <div style="padding:7px 9px; border-radius:8px; background:var(--bg-card); border:1px solid var(--border-strong); text-align:center;">
+                <div style="font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">2. Final Sell Target 1</div>
+                <div class="mono" style="font-size:14px; font-weight:900; color:var(--accent-blue);">Rs ${fmtNum(mc.unifiedTarget1, 1)}</div>
+                <div style="font-size:9.5px; color:var(--green-main); font-weight:700;">+${fmtNum(mc.unifiedGrossGainPct, 1)}% (~+${fmtNum(mc.unifiedNetGainPct, 1)}% Net)</div>
+              </div>
+              <div style="padding:7px 9px; border-radius:8px; background:var(--bg-card); border:1px solid var(--border-strong); text-align:center;">
+                <div style="font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">3. Final Sell Target 2</div>
+                <div class="mono" style="font-size:14px; font-weight:900; color:#a855f7;">Rs ${fmtNum(mc.unifiedTarget2, 1)}</div>
+                <div style="font-size:9.5px; color:var(--text-secondary);">Swing Extension</div>
+              </div>
+              <div style="padding:7px 9px; border-radius:8px; background:var(--bg-card); border:1px solid var(--red-border); text-align:center;">
+                <div style="font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">4. Final Stop-Loss</div>
+                <div class="mono" style="font-size:14px; font-weight:900; color:var(--red-main);">Rs ${fmtNum(mc.unifiedStopLoss, 1)}</div>
+                <div style="font-size:9.5px; color:var(--text-secondary);">Net R:R 1:${fmtNum(mc.unifiedNetRR, 2)}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Side-by-Side 6-Signal Voting & Price Comparison Table -->
+          <div style="overflow-x:auto; border:1px solid var(--border); border-radius:9px; margin-bottom:10px;">
+            <table style="width:100%; border-collapse:collapse; text-align:left;">
+              <thead>
+                <tr style="background:var(--bg-subtle); border-bottom:1px solid var(--border-strong); font-size:10px; text-transform:uppercase; color:var(--text-muted);">
+                  <th style="padding:6px 8px;">Signal Engine &amp; Technique</th>
+                  <th style="padding:6px 8px;">Weight</th>
+                  <th style="padding:6px 8px;">Signal Vote &amp; Score</th>
+                  <th style="padding:6px 8px;">Engine Buy</th>
+                  <th style="padding:6px 8px;">Engine Target</th>
+                  <th style="padding:6px 8px;">Engine Stop</th>
+                  <th style="padding:6px 8px;">Why This Signal Voted This Way</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${sigRowsHtml}
+                <tr style="background:var(--green-soft); border-top:2px solid var(--green-border-strong); font-weight:900;">
+                  <td style="padding:7px 8px; font-size:11.5px; color:var(--text-main);">🏆 FINAL MASTER CONSENSUS (COMBINED)</td>
+                  <td class="mono" style="padding:7px 8px; font-size:11.5px; color:var(--green-main);">100%</td>
+                  <td style="padding:7px 8px;">
+                    <span class="badge ${isBearMaster ? 'badge-red' : isBullMaster ? 'badge-green' : 'badge-neutral'}">${mc.masterActionCode.replace(/_/g, ' ')}</span>
+                    <span class="mono" style="font-size:11px; margin-left:4px;">${mc.masterScore}/100</span>
+                  </td>
+                  <td class="mono" style="padding:7px 8px; font-size:12px; color:var(--green-main);">Rs ${fmtNum(mc.unifiedBuyPrice, 1)}</td>
+                  <td class="mono" style="padding:7px 8px; font-size:12px; color:var(--accent-blue);">Rs ${fmtNum(mc.unifiedTarget1, 1)}</td>
+                  <td class="mono" style="padding:7px 8px; font-size:12px; color:var(--red-main);">Rs ${fmtNum(mc.unifiedStopLoss, 1)}</td>
+                  <td style="padding:7px 8px; font-size:10.5px; color:var(--text-main);">Weighted Confluence Cluster + ${mc.rulesPassedCount}/${mc.totalRules} Veto Rules Passed (Net R:R 1:${fmtNum(mc.unifiedNetRR, 2)})</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 5 Institutional Rules & Veto Filters -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(215px, 1fr)); gap:7px;">
+            ${rulesHtml}
           </div>
         `;
       }
