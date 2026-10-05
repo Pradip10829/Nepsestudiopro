@@ -657,7 +657,7 @@ class NepseProvider {
     }
   }
 
-  getActiveSessionDateStr() {
+  getCachedSessionDateStr() {
     const asOf = String(this.marketIndex?.asOfDateString || "").trim();
     const m = asOf.match(/(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/);
     if (m) {
@@ -668,11 +668,18 @@ class NepseProvider {
       const mm = months[m[2].toLowerCase()];
       if (mm) return `${m[3]}-${mm}-${String(m[1]).padStart(2, "0")}`;
     }
-    const { isTradingDay, hour, nptDateStr } = this.isMarketOpenNow();
-    if (isTradingDay && hour >= 11) {
-      return nptDateStr;
-    }
+    const iso = asOf.match(/(\d{4}-\d{2}-\d{2})/);
+    if (iso) return iso[1];
     return "2026-10-05";
+  }
+
+  getActiveSessionDateStr() {
+    const cachedDate = this.getCachedSessionDateStr();
+    const { expectedSessionDateStr } = this.isMarketOpenNow();
+    if (expectedSessionDateStr && expectedSessionDateStr > cachedDate) {
+      return expectedSessionDateStr;
+    }
+    return cachedDate;
   }
 
   /**
@@ -1035,7 +1042,7 @@ class NepseProvider {
 
   isCacheStaleForLatestSession() {
     const { expectedSessionDateStr } = this.isMarketOpenNow();
-    const cachedDateStr = this.getActiveSessionDateStr();
+    const cachedDateStr = this.getCachedSessionDateStr();
     return Boolean(expectedSessionDateStr && cachedDateStr && cachedDateStr < expectedSessionDateStr);
   }
 
@@ -1267,6 +1274,7 @@ class NepseProvider {
                 }
               });
               if (count > 5) {
+                meroUpdated = Math.max(meroUpdated, count);
                 this.applyMeroSharePortfolioLocks();
                 this.syncNepseIndexQuote();
                 this.dataSource = "SHARESANSAR_LIVE";
@@ -1277,6 +1285,12 @@ class NepseProvider {
         : Promise.resolve();
 
       await Promise.allSettled([idxTask, subTask, meroTask, ssTask]);
+      if (meroUpdated > 5) {
+        const { expectedSessionDateStr, isOpen } = this.isMarketOpenNow();
+        if (expectedSessionDateStr && this.getCachedSessionDateStr() < expectedSessionDateStr) {
+          this.marketIndex.asOfDateString = `${expectedSessionDateStr} ${isOpen ? "LIVE" : "3:00:00 PM"}`;
+        }
+      }
       this.saveLiveDiskCache();
     };
 

@@ -311,7 +311,11 @@ function parseBody(req) {
 
 const requestHandler = async (req, res) => {
   res.req = req;
-  const parsedUrl = url.parse(req.url || "/", true);
+  const whatwgUrl = new URL(req.url || "/", "http://localhost");
+  const parsedUrl = {
+    pathname: whatwgUrl.pathname || "/",
+    query: Object.fromEntries(whatwgUrl.searchParams.entries())
+  };
   let pathname = parsedUrl.pathname || "/";
   if (parsedUrl.query && parsedUrl.query.__path) {
     const rawPath = String(parsedUrl.query.__path).replace(/^\/+/, "");
@@ -573,7 +577,7 @@ const requestHandler = async (req, res) => {
   }
 
   // 5. CDSC MeroShare Account Link & "Mero" Portfolio Automated Sync API
-  if (pathname === "/api/meroshare/status" && req.method === "GET") {
+  if ((pathname === "/api/meroshare/status" || pathname === "/api/meroshare") && req.method === "GET") {
     const portfolio = loadMeroPortfolio();
     return sendJson(res, 200, { ok: true, portfolio });
   }
