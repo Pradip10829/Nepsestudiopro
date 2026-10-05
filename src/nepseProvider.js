@@ -388,15 +388,25 @@ class NepseProvider {
         meroPortfolio = require("../data/meroshare_mero_portfolio.json");
       }
       const meroHoldings = meroPortfolio?.holdings || {};
-      const { isOpen } = this.isMarketOpenNow();
+      let portfolioLtpUpdated = false;
 
       for (const [mSym, h] of Object.entries(meroHoldings)) {
         if (!h || Number(h.kitta) <= 0) continue;
         const cdscLtp = Number(h.cdscLtp || 0);
         const cdscPrev = Number(h.cdscPrevClose || cdscLtp);
-        if (this.quotes.has(mSym) && cdscLtp > 0) {
+        if (this.quotes.has(mSym)) {
           const existingQ = this.quotes.get(mSym);
-          if (!isOpen || existingQ.source === "NEPSE_VERIFIED_FEED") {
+          const isLiveScraped =
+            existingQ.source === "MEROLAGANI_LIVE" ||
+            existingQ.source === "SHARESANSAR_LIVE";
+
+          if (isLiveScraped && existingQ.ltp > 0) {
+            if (Math.abs((h.cdscLtp || 0) - existingQ.ltp) > 0.01) {
+              h.cdscLtp = existingQ.ltp;
+              if (existingQ.prevClose > 0) h.cdscPrevClose = existingQ.prevClose;
+              portfolioLtpUpdated = true;
+            }
+          } else if (cdscLtp > 0 && existingQ.source === "NEPSE_VERIFIED_FEED") {
             existingQ.ltp = cdscLtp;
             if (cdscPrev > 0) existingQ.prevClose = cdscPrev;
             existingQ.pointChange = round2(existingQ.ltp - existingQ.prevClose);
@@ -450,11 +460,17 @@ class NepseProvider {
             topSellBrokers: [34, 28],
             bias: "neutral",
             source: "CDSC_MEROSHARE_HOLDING",
-            updatedAt: "2026-10-02T15:00:00.000Z"
+            updatedAt: new Date().toISOString()
           };
           this.quotes.set(mSym, fallbackQuote);
           this.reanchorHistoryToLiveQuote(mSym, ltp, prevClose, ltp, ltp, 1000);
         }
+      }
+
+      if (portfolioLtpUpdated && meroPortfolio) {
+        try {
+          fs.writeFileSync(meroFile, JSON.stringify(meroPortfolio, null, 2), "utf8");
+        } catch (_) {}
       }
     } catch (_) {}
   }
@@ -641,32 +657,50 @@ class NepseProvider {
     }
   }
 
+  getActiveSessionDateStr() {
+    const asOf = String(this.marketIndex?.asOfDateString || "").trim();
+    const m = asOf.match(/(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/);
+    if (m) {
+      const months = {
+        jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+        jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12"
+      };
+      const mm = months[m[2].toLowerCase()];
+      if (mm) return `${m[3]}-${mm}-${String(m[1]).padStart(2, "0")}`;
+    }
+    const { isTradingDay, hour, nptDateStr } = this.isMarketOpenNow();
+    if (isTradingDay && hour >= 11) {
+      return nptDateStr;
+    }
+    return "2026-10-05";
+  }
+
   /**
    * Uses 100% REAL 200-day NEPSE OHLCV candles from NepaliPaisa/Chukul when cached,
    * or falls back to calibrated historical bars if real OHLCV hasn't been fetched yet.
    */
   reanchorHistoryToLiveQuote(sym, ltp, prevClose, high, low, volume, openPrice = 0, exactTurnover = 0) {
+    const activeSessionDate = this.getActiveSessionDateStr();
     const realEntry = sym !== "NEPSE" ? realDataEngine.getCached(sym) : null;
     if (realEntry && Array.isArray(realEntry.bars) && realEntry.bars.length >= 20) {
       const cloned = realEntry.bars.map((b) => ({ ...b }));
       const lastIdx = cloned.length - 1;
       const lastBar = cloned[lastIdx];
       if (ltp > 0) {
-        const { isOpen, nptDateStr } = this.isMarketOpenNow();
-        // If the market is open and the last real bar is from an earlier session, append intraday bar
-        if (isOpen && lastBar.date !== nptDateStr && Math.abs(lastBar.close - ltp) > 0.01) {
+        // If we are in a newer trading session than the last cached bar, append a new daily bar
+        if (lastBar.date && activeSessionDate > lastBar.date) {
           const safeOpen = openPrice > 0 ? openPrice : prevClose > 0 ? prevClose : lastBar.close || ltp;
           const safeHigh = round2(Math.max(high || ltp, low || ltp, ltp, safeOpen));
           const safeLow = round2(Math.min(low || ltp, high || ltp, ltp, safeOpen));
           cloned.push({
-            date: nptDateStr,
+            date: activeSessionDate,
             open: safeOpen,
             high: safeHigh,
             low: safeLow,
             close: ltp,
             volume: volume > 0 ? volume : lastBar.volume,
             turnover: exactTurnover > 0 ? round2(exactTurnover) : round2(ltp * (volume > 0 ? volume : lastBar.volume)),
-            source: "LIVE_INTRADAY_BAR"
+            source: "LIVE_SESSION_BAR"
           });
         } else if (Math.abs(lastBar.close - ltp) > 0.01) {
           // Align only the final close/high/low without corrupting open or prior bars
@@ -715,7 +749,7 @@ class NepseProvider {
 
     bars[lastIdx] = {
       ...bars[lastIdx],
-      date: "2026-10-05",
+      date: activeSessionDate,
       open: safeOpen,
       high: safeHigh,
       low: safeLow,
@@ -978,22 +1012,45 @@ class NepseProvider {
     const hour = npt.getHours();
     const isTradingDay = day >= 0 && day <= 4;
     const isTradingHour = hour >= 11 && hour < 15;
+
+    // Determine the most recent trading session date (Sun-Thu, rolling after 11:00 AM NPT)
+    const sessionRef = new Date(npt.getTime());
+    if (isTradingDay && hour < 11) {
+      sessionRef.setDate(sessionRef.getDate() - 1);
+    }
+    while (sessionRef.getDay() === 5 || sessionRef.getDay() === 6) {
+      sessionRef.setDate(sessionRef.getDate() - 1);
+    }
+    const expectedSessionDateStr = sessionRef.toISOString().split("T")[0];
+
     return {
       isOpen: isTradingDay && isTradingHour,
+      isTradingDay,
+      hour,
       nptTimeStr: npt.toTimeString().split(" ")[0],
-      nptDateStr: npt.toISOString().split("T")[0]
+      nptDateStr: npt.toISOString().split("T")[0],
+      expectedSessionDateStr
     };
+  }
+
+  isCacheStaleForLatestSession() {
+    const { expectedSessionDateStr } = this.isMarketOpenNow();
+    const cachedDateStr = this.getActiveSessionDateStr();
+    return Boolean(expectedSessionDateStr && cachedDateStr && cachedDateStr < expectedSessionDateStr);
   }
 
   async refreshLiveQuotes(force = false) {
     const now = Date.now();
     const { isOpen } = this.isMarketOpenNow();
-    if (!isOpen && !force && this.quotes.size > 100) {
+    const isStaleSession = this.isCacheStaleForLatestSession();
+    const shouldSyncQuotes = isOpen || force || isStaleSession;
+
+    if (!shouldSyncQuotes && this.quotes.size > 100) {
       this.applyMeroSharePortfolioLocks();
       this.syncNepseIndexQuote();
       return;
     }
-    const minIntervalMs = !isOpen && this.quotes.size > 100 ? 3600000 : 12000;
+    const minIntervalMs = !isOpen && !isStaleSession && this.quotes.size > 100 ? 3600000 : 12000;
     if (!force && this.lastScrapedAt > 0 && now - this.lastScrapedAt < minIntervalMs) {
       return;
     }
@@ -1087,7 +1144,7 @@ class NepseProvider {
         .catch(() => {});
 
       // 3. MeroLagani Live Market Quotes
-      const meroTask = cheerio && (isOpen || force)
+      const meroTask = cheerio && shouldSyncQuotes
         ? fetchWithTimeout("https://merolagani.com/LatestMarket.aspx", 1800)
             .then(async (res) => {
               if (!res || !res.ok) return;
@@ -1155,7 +1212,7 @@ class NepseProvider {
         : Promise.resolve();
 
       // 4. ShareSansar Official Today Share Price Stream (24-column #headFixed table)
-      const ssTask = cheerio && (isOpen || force)
+      const ssTask = cheerio && shouldSyncQuotes
         ? fetchWithTimeout("https://www.sharesansar.com/today-share-price", 2200)
             .then(async (res) => {
               if (!res || !res.ok || meroUpdated > 10) return;

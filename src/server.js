@@ -1510,10 +1510,10 @@ setImmediate(async () => {
 });
 
 if (!process.env.VERCEL && require.main === module) {
-  // High-Speed Background Live Streamer (keeps quotes & signals hot every 10s during open market hours)
+  // High-Speed Background Live Streamer (keeps quotes & signals hot every 10s during open market hours or when EOD cache rolls over)
   setInterval(async () => {
     try {
-      if (nepseProvider.isMarketOpenNow().isOpen) {
+      if (nepseProvider.isMarketOpenNow().isOpen || nepseProvider.isCacheStaleForLatestSession()) {
         await nepseProvider.refreshLiveQuotes(true);
         const quotes = await nepseProvider.getAllQuotes();
         buildIncrementalDashboardSignals(quotes);
