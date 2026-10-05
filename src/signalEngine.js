@@ -1401,9 +1401,80 @@ function detectSmartMoneyConcepts(bars, sr, atr14) {
     dealingZone = `EXTREME PREMIUM (${rangePct}% of Range — Distribution Area) 🔴`;
   }
 
-  // 7. Synthesize SMC Institutional Playbook
+  // 7. Breaker Block Detection (Mitigated/Broken Order Block that Flipped Polarity)
+  let breakerBlock = null;
+  if (currentPrice > sr.fib500 && lastSH.price > prevSH.price) {
+    const brkPrice = round2(Math.min(prevSH.price, currentPrice * 0.985));
+    breakerBlock = {
+      type: "BULLISH BREAKER BLOCK 🟢",
+      low: round2(brkPrice - atr * 0.25),
+      high: round2(brkPrice + atr * 0.2),
+      zoneText: `Rs ${round2(brkPrice - atr * 0.25)} – Rs ${round2(brkPrice + atr * 0.2)}`,
+      desc: "Former supply resistance broken with displacement — now acts as institutional flip support"
+    };
+  } else if (currentPrice < sr.fib500 && lastSL.price < prevSL.price) {
+    const brkPrice = round2(Math.max(prevSL.price, currentPrice * 1.015));
+    breakerBlock = {
+      type: "BEARISH BREAKER BLOCK 🔴",
+      low: round2(brkPrice - atr * 0.2),
+      high: round2(brkPrice + atr * 0.25),
+      zoneText: `Rs ${round2(brkPrice - atr * 0.2)} – Rs ${round2(brkPrice + atr * 0.25)}`,
+      desc: "Former demand floor broken downward — now acts as institutional overhead supply"
+    };
+  }
+
+  // 8. Previous Week High (PWH) & Previous Week Low (PWL) Institutional Weekly Liquidity
+  const prevWeekSlice = recent.length >= 10 ? recent.slice(-10, -5) : recent.slice(0, Math.max(1, n - 3));
+  const pwh = round2(Math.max(...prevWeekSlice.map((b) => b.high)));
+  const pwl = round2(Math.min(...prevWeekSlice.map((b) => b.low)));
+  const sweptPWL = last.low <= pwl && last.close > pwl;
+  const brokePWH = currentPrice > pwh;
+
+  // 9. SMC Institutional Score (0–100) & Exact SMC Trade Execution Plan
+  let smcScore = 50;
+  if (structureType.includes("BULLISH")) smcScore += 16;
+  else if (structureType.includes("BEARISH")) smcScore -= 14;
+
+  if (inOteZone) smcScore += 14;
+  else if (isDiscount) smcScore += 9;
+  else if (rangePct >= 78) smcScore -= 12;
+
+  if (inBullOB) smcScore += 12;
+  else if (inBearOB) smcScore -= 10;
+
+  if (sslSweep || sweptPWL) smcScore += 12;
+  else if (bslSweep) smcScore -= 12;
+
+  if (bullishFVG) smcScore += 6;
+  if (bearishFVG && !bullishFVG) smcScore -= 5;
+  if (brokePWH) smcScore += 6;
+
+  smcScore = Math.min(98, Math.max(15, Math.round(smcScore)));
+  const smcGrade =
+    smcScore >= 80
+      ? "A+ (ELITE INSTITUTIONAL CONFLUENCE)"
+      : smcScore >= 68
+        ? "A (HIGH-PROBABILITY SMC SETUP)"
+        : smcScore >= 52
+          ? "B (INTERNAL RANGE / WAIT FOR OTE)"
+          : "C (BEARISH DISTRIBUTION / AVOID)";
+
+  // Exact SMC Entry, Structural Stop & Liquidity Targets
+  const smcEntryPrice = inBullOB || inOteZone
+    ? currentPrice
+    : bullishFVG && bullishFVG.midpoint <= currentPrice
+      ? bullishFVG.midpoint
+      : round2(Math.max(bullOBHigh, Math.min(currentPrice * 0.99, oteHigh)));
+
+  const smcStopLoss = round2(Math.min(bullOBLow * 0.992, lastSL.price * 0.992, smcEntryPrice * 0.955));
+  const smcRisk = Math.max(1, round2(smcEntryPrice - smcStopLoss));
+  const smcTarget1 = round2(Math.max(equilibrium50, pwh, smcEntryPrice + smcRisk * 1.8));
+  const smcTarget2 = round2(Math.max(bslPoolPrice, bearOBHigh, smcTarget1 * 1.045));
+  const smcRiskReward = round2((smcTarget1 - smcEntryPrice) / smcRisk);
+
+  // 10. Synthesize SMC Institutional Playbook
   let smcVerdict = "SMC NEUTRAL / RANGE ACCUMULATION 🟡";
-  if (sslSweep || (inBullOB && structureType.includes("BULLISH")) || inOteZone) {
+  if (sslSweep || sweptPWL || (inBullOB && structureType.includes("BULLISH")) || inOteZone) {
     smcVerdict = "INSTITUTIONAL SMC BUY SETUP (Discount OB / Liquidity Sweep) 🐋🟢";
   } else if (structureType.includes("BULLISH") && isDiscount) {
     smcVerdict = "BULLISH STRUCTURE IN DISCOUNT (Ideal Smart Money Entry) 🟢";
@@ -1415,9 +1486,11 @@ function detectSmartMoneyConcepts(bars, sr, atr14) {
     smcVerdict = "BEARISH SMC MARKET STRUCTURE (Wait for Bullish CHoCH > Rs " + lastSH.price + ") 🔴";
   }
 
-  const smcPlaybook = `Wait for mitigation of Bullish Order Block (${bullishOB.zoneText}) or OTE Discount Zone (Rs ${oteLow}–${oteHigh}), target Buy-Side Liquidity above Rs ${bslPoolPrice} & Supply OB (${bearishOB.zoneText}).`;
+  const smcPlaybook = `SMC Entry @ Rs ${smcEntryPrice} (Demand OB ${bullishOB.zoneText} | OTE Rs ${oteLow}–${oteHigh}) • Structural Stop < Rs ${smcStopLoss} • Target 1 (PWH/Eq): Rs ${smcTarget1} • Target 2 (BSL Pool): Rs ${smcTarget2} (SMC R:R 1:${smcRiskReward}).`;
 
   return {
+    smcScore,
+    smcGrade,
     structureType,
     structureTag,
     structureLevel,
@@ -1426,11 +1499,16 @@ function detectSmartMoneyConcepts(bars, sr, atr14) {
     lastSwingLow: lastSL,
     bullishOB,
     bearishOB,
+    breakerBlock,
     bullishFVG,
     bearishFVG,
     activeFVGText,
     sslPoolPrice,
     bslPoolPrice,
+    pwh,
+    pwl,
+    sweptPWL,
+    brokePWH,
     sslSweep,
     bslSweep,
     hasEqualHighs,
@@ -1445,8 +1523,227 @@ function detectSmartMoneyConcepts(bars, sr, atr14) {
     isDiscount,
     rangePct,
     dealingZone,
+    smcTradePlan: {
+      entryPrice: smcEntryPrice,
+      stopLoss: smcStopLoss,
+      target1: smcTarget1,
+      target2: smcTarget2,
+      riskReward: smcRiskReward
+    },
     smcVerdict,
     smcPlaybook
+  };
+}
+
+/**
+ * NEPSE Sun–Thu Weekly Trading & Multi-Week Swing Engine
+ * Aggregates Daily Bars into 5-Session NEPSE Trading Weeks (Sun–Thu) and computes:
+ *  - Weekly Candlesticks (Open, High, Low, Close, Volume, Date)
+ *  - Previous Week High (PWH), Previous Week Low (PWL), Weekly Floor Pivots (P, R1, R2, S1, S2)
+ *  - Weekly EMA(4), Weekly EMA(10), Weekly RSI(14), Weekly Volume Surge
+ *  - Sun–Thu Execution Plan + Thursday 2:45 PM Weekend Hold vs Profit-Booking Rule
+ */
+function evaluateWeeklyTrading(bars, quote, sr, smc, atr14) {
+  const n = bars.length;
+  const weeklyBars = [];
+  const groupSize = 5; // NEPSE 5-day trading week (Sun–Thu)
+  const remainder = n % groupSize;
+
+  if (remainder > 0) {
+    const firstChunk = bars.slice(0, remainder);
+    weeklyBars.push({
+      date: firstChunk[firstChunk.length - 1].date || "Week",
+      startDate: firstChunk[0].date || "Start",
+      open: round2(firstChunk[0].open),
+      high: round2(Math.max(...firstChunk.map((b) => b.high))),
+      low: round2(Math.min(...firstChunk.map((b) => b.low))),
+      close: round2(firstChunk[firstChunk.length - 1].close),
+      volume: Math.round(firstChunk.reduce((s, b) => s + (b.volume || 0), 0))
+    });
+  }
+  for (let i = remainder; i < n; i += groupSize) {
+    const chunk = bars.slice(i, i + groupSize);
+    if (!chunk.length) continue;
+    weeklyBars.push({
+      date: chunk[chunk.length - 1].date || "Week",
+      startDate: chunk[0].date || "Start",
+      open: round2(chunk[0].open),
+      high: round2(Math.max(...chunk.map((b) => b.high))),
+      low: round2(Math.min(...chunk.map((b) => b.low))),
+      close: round2(chunk[chunk.length - 1].close),
+      volume: Math.round(chunk.reduce((s, b) => s + (b.volume || 0), 0))
+    });
+  }
+
+  const wLen = weeklyBars.length;
+  const currW = weeklyBars[wLen - 1] || {
+    date: "Current Week",
+    open: quote.open || quote.ltp,
+    high: quote.high || quote.ltp,
+    low: quote.low || quote.ltp,
+    close: quote.ltp,
+    volume: quote.volume || 0
+  };
+  const prevW = weeklyBars[wLen - 2] || currW;
+  const prev2W = weeklyBars[wLen - 3] || prevW;
+
+  const weekChangePt = round2(currW.close - prevW.close);
+  const weekChangePct = prevW.close > 0 ? round2(((currW.close - prevW.close) / prevW.close) * 100) : 0;
+  const avgWeeklyVol =
+    wLen >= 5
+      ? Math.round(weeklyBars.slice(-5, -1).reduce((s, b) => s + b.volume, 0) / 4)
+      : Math.max(1, prevW.volume);
+  const weeklyVolRatio = avgWeeklyVol > 0 ? round2(currW.volume / avgWeeklyVol) : 1.0;
+
+  // Weekly Indicators
+  const wCloses = weeklyBars.map((b) => b.close);
+  const wEma4Arr = calcEMASeries(wCloses, Math.min(4, wCloses.length));
+  const wEma10Arr = calcEMASeries(wCloses, Math.min(10, wCloses.length));
+  const weeklyEMA4 = round2(wEma4Arr[wEma4Arr.length - 1] || currW.close);
+  const weeklyEMA10 = round2(wEma10Arr[wEma10Arr.length - 1] || currW.close);
+  const wRsiArr = calcRSISeries(wCloses, Math.min(10, Math.max(3, wCloses.length - 1)));
+  const weeklyRSI = round2(wRsiArr[wRsiArr.length - 1] ?? 50);
+
+  // Classic Weekly Floor Pivots from Previous Week (PWH, PWL, PWC)
+  const pwh = round2(prevW.high);
+  const pwl = round2(prevW.low);
+  const pwc = round2(prevW.close);
+  const wRange = Math.max(1, pwh - pwl);
+  const weeklyPivot = round2((pwh + pwl + pwc) / 3);
+  const weeklyR1 = round2(2 * weeklyPivot - pwl);
+  const weeklyS1 = round2(2 * weeklyPivot - pwh);
+  const weeklyR2 = round2(weeklyPivot + wRange);
+  const weeklyS2 = round2(weeklyPivot - wRange);
+
+  const wCandleRange = Math.max(0.01, currW.high - currW.low);
+  const wCLV = round2((currW.close - currW.low) / wCandleRange);
+
+  const isWeeklyBreakout =
+    currW.close > pwh &&
+    currW.close >= weeklyEMA4 &&
+    weeklyRSI >= 50 &&
+    weeklyRSI <= 74 &&
+    wCLV >= 0.55;
+
+  const isWeeklySwingBuy =
+    !isWeeklyBreakout &&
+    currW.close >= weeklyEMA10 * 0.99 &&
+    currW.close >= weeklyPivot * 0.985 &&
+    weeklyRSI >= 44 &&
+    weeklyRSI <= 68 &&
+    currW.close >= currW.open * 0.99;
+
+  const isWeeklyPullbackBuy =
+    !isWeeklyBreakout &&
+    !isWeeklySwingBuy &&
+    currW.close >= weeklyS1 * 0.985 &&
+    currW.close <= weeklyEMA4 * 1.015 &&
+    weeklyRSI >= 35 &&
+    weeklyRSI <= 58;
+
+  let weeklyScore = 50;
+  if (currW.close >= weeklyEMA4 && weeklyEMA4 >= weeklyEMA10) weeklyScore += 18;
+  else if (currW.close < weeklyEMA10) weeklyScore -= 15;
+
+  if (currW.close > pwh) weeklyScore += 14;
+  else if (currW.close < pwl) weeklyScore -= 14;
+
+  if (weeklyRSI >= 48 && weeklyRSI <= 68) weeklyScore += 10;
+  else if (weeklyRSI > 75) weeklyScore -= 12;
+  else if (weeklyRSI < 38) weeklyScore -= 8;
+
+  if (weeklyVolRatio >= 1.15 && weekChangePct > 0) weeklyScore += 8;
+  if (wCLV >= 0.6) weeklyScore += 6;
+
+  weeklyScore = Math.min(98, Math.max(15, Math.round(weeklyScore)));
+
+  let weeklyCategory = "🟡 WEEKLY HOLD / RANGE";
+  let weeklyBadge = "🟡 WEEKLY CONSOLIDATION";
+  if (isWeeklyBreakout) {
+    weeklyCategory = "🔥 WEEKLY BREAKOUT";
+    weeklyBadge = `🔥 WEEKLY BREAKOUT (> PWH Rs ${pwh})`;
+  } else if (isWeeklySwingBuy) {
+    weeklyCategory = "🟢 WEEKLY SWING BUY";
+    weeklyBadge = `🟢 WEEKLY UPTREND SWING (> 10W EMA Rs ${weeklyEMA10})`;
+  } else if (isWeeklyPullbackBuy) {
+    weeklyCategory = "🎯 WEEKLY DIP BUY";
+    weeklyBadge = `🎯 WEEKLY VALUE PULLBACK (Near Pivot/S1 Rs ${weeklyS1})`;
+  } else if (currW.close < pwl || weeklyRSI >= 75) {
+    weeklyCategory = "🔴 WEEKLY TRIM / AVOID";
+    weeklyBadge = weeklyRSI >= 75 ? `🔴 WEEKLY OVERBOUGHT (RSI ${weeklyRSI})` : `🔴 BELOW PREV WEEK LOW (< Rs ${pwl})`;
+  }
+
+  // Sun–Thu Weekly Execution Prices
+  const sunMonEntry = isWeeklyBreakout
+    ? currW.close
+    : round2(Math.min(currW.close, Math.max(weeklyS1, weeklyPivot)));
+  const tueWedDipAdd = round2(Math.min(sunMonEntry * 0.98, Math.max(pwl, weeklyS1)));
+  const weeklyStopLoss = round2(Math.min(pwl * 0.985, weeklyS1 * 0.985, sunMonEntry * 0.945));
+  const thursdayTarget1 = round2(Math.max(weeklyR1, pwh, currW.close * 1.045));
+  const nextWeekTarget2 = round2(Math.max(weeklyR2, thursdayTarget1 * 1.05));
+
+  const thursdayCloseRule =
+    weeklyRSI >= 72
+      ? `💰 BOOK 50%–70% PROFIT ON THURSDAY (2:15–2:45 PM): Weekly RSI (${weeklyRSI}) is stretched; lock profit before weekend.`
+      : currW.close >= weeklyEMA4 && wCLV >= 0.55
+        ? `🟢 HOLD OVER WEEKEND (FRI–SAT): Strong weekly close (${Math.round(wCLV * 100)}% of weekly range) above 4W EMA (Rs ${weeklyEMA4}). Carry into Sunday gap-up.`
+        : currW.close < pwl
+          ? `🛑 EXIT BEFORE THURSDAY 2:45 PM CLOSE: Price broke below Previous Week Low (Rs ${pwl}); do not hold weak structure over weekend.`
+          : `⚖️ KEEP LIGHT POSITION OVER WEEKEND: Hold above Weekly Stop-Loss (Rs ${weeklyStopLoss}) and add only above Weekly Pivot (Rs ${weeklyPivot}).`;
+
+  return {
+    weeklyScore,
+    weeklyCategory,
+    weeklyBadge,
+    isWeeklyBreakout,
+    isWeeklySwingBuy,
+    isWeeklyPullbackBuy,
+    thisWeek: {
+      open: currW.open,
+      high: currW.high,
+      low: currW.low,
+      close: currW.close,
+      volume: currW.volume,
+      changePt: weekChangePt,
+      changePct: weekChangePct,
+      volRatio: weeklyVolRatio,
+      candleCLV: wCLV
+    },
+    prevWeek: {
+      high: pwh,
+      low: pwl,
+      close: pwc,
+      prev2High: prev2W.high,
+      prev2Low: prev2W.low
+    },
+    pivots: {
+      pivot: weeklyPivot,
+      r1: weeklyR1,
+      r2: weeklyR2,
+      s1: weeklyS1,
+      s2: weeklyS2
+    },
+    indicators: {
+      weeklyEMA4,
+      weeklyEMA10,
+      weeklyRSI
+    },
+    weeklyPlan: {
+      sunMonEntry,
+      tueWedDipAdd,
+      thursdayTarget1,
+      nextWeekTarget2,
+      weeklyStopLoss,
+      thursdayCloseRule
+    },
+    weeklyBars: weeklyBars.slice(-18).map((wb) => ({
+      d: wb.date,
+      o: wb.open,
+      h: wb.high,
+      l: wb.low,
+      c: wb.close,
+      v: wb.volume
+    }))
   };
 }
 
@@ -2124,6 +2421,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
   const adxObj = calcADX(bars, 14);
   const sr = findSupportResistanceAndFib(bars);
   const smc = detectSmartMoneyConcepts(bars, sr, atr14);
+  const weeklyTrading = evaluateWeeklyTrading(bars, quote, sr, smc, atr14);
   const smartMoney = calcSmartMoneyFlow(bars, quote);
   const candlePattern = detectCandlestickPattern(bars);
   const chartPatternCMT = detectChartPatternsCMT(bars, atr14, sma200);
@@ -3020,6 +3318,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     fundamentals,
     smartMoney,
     smc,
+    weeklyTrading,
     backtest,
     reasons
   };
@@ -3029,6 +3328,7 @@ module.exports = {
   analyzeStock,
   normalizeBarsForBookClose,
   detectSmartMoneyConcepts,
+  evaluateWeeklyTrading,
   detectChartPatternsCMT,
   evaluateFundamentals,
   evaluateLongTermHold,

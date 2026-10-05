@@ -1789,8 +1789,8 @@
       <button type="button" class="btn btn-soft-green" onclick="openQrModal()" id="waStatusBtn" style="padding:6px 12px; font-size:11.5px;">
         WhatsApp Bot
       </button>
-      <button type="button" class="btn btn-green" onclick="loadDashboard(true)" style="padding:6px 13px; font-size:11.5px; background:var(--brand-primary); border-color:var(--brand-primary);">
-        Sync Live
+      <button type="button" class="btn btn-green" id="syncLiveBtn" onclick="loadDashboard(true)" style="padding:6px 13px; font-size:11.5px; background:var(--brand-primary); border-color:var(--brand-primary);">
+        ⚡ Fast Sync Live
       </button>
     </div>
   </header>
@@ -1832,6 +1832,10 @@
       <button type="button" class="yt-nav-item" id="nav-immbuy" onclick="setCategoryFilter('IMMEDIATE_BUY'); switchAppPage('PAGE_3')">
         <svg class="svg-ic text-green" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
         <span class="yt-nav-label">Immediate Buy Stocks</span>
+      </button>
+      <button type="button" class="yt-nav-item" id="nav-weekly" onclick="setCategoryFilter('WEEKLY_SWING'); switchAppPage('PAGE_3')">
+        <svg class="svg-ic text-green" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span class="yt-nav-label">Weekly Swing (Sun–Thu)</span>
       </button>
       <button type="button" class="yt-nav-item" id="nav-dip" onclick="setCategoryFilter('BUY_ON_DIP'); switchAppPage('PAGE_3')">
         <svg class="svg-ic text-green" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>
@@ -1883,6 +1887,9 @@
           <button class="tab-btn tab-green" id="tab-IMMEDIATE_BUY" onclick="setCategoryFilter('IMMEDIATE_BUY')">
             Immediate Buy <span class="tab-count" id="cnt-IMMEDIATE_BUY">0</span>
           </button>
+          <button class="tab-btn tab-green" id="tab-WEEKLY_SWING" onclick="setCategoryFilter('WEEKLY_SWING')">
+            📅 Weekly Swing <span class="tab-count" id="cnt-WEEKLY_SWING">0</span>
+          </button>
           <button class="tab-btn tab-green" id="tab-BUY_ON_DIP" onclick="setCategoryFilter('BUY_ON_DIP')">
             Buy on Dip <span class="tab-count" id="cnt-BUY_ON_DIP">0</span>
           </button>
@@ -1906,6 +1913,8 @@
           </select>
           <select id="sortSelect" class="select-box" onchange="handleSortSelect(this.value)" style="padding:5px 10px; font-size:12px;">
             <option value="score_desc">Sort: Highest Quant Score</option>
+            <option value="weeklyScore_desc">Sort: Best Weekly Swing Score</option>
+            <option value="smcScore_desc">Sort: Best SMC Confluence Score</option>
             <option value="ltScore_desc">Sort: Best Long-Term</option>
             <option value="exitUrgency_desc">Sort: Sell Urgency</option>
             <option value="changePct_desc">Sort: Top Gainers %</option>
@@ -2050,17 +2059,18 @@
             <div class="yt-player-stage" id="chartPlayerSection">
               <div class="yt-player-header">
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                  <!-- Interactive Timeframe Selector (30D / 60D / 90D) -->
-                  <div class="tv-toolbar-group" title="Select how many days of price history to view">
+                  <!-- Interactive Timeframe Selector (30D / 60D / 90D / 1W Weekly) -->
+                  <div class="tv-toolbar-group" title="Select how many days or weeks of price history to view">
                     <button type="button" class="tv-pill-btn" id="tfBtn-30" onclick="setChartTimeframe(30)" title="Last 30 Trading Days">30D</button>
                     <button type="button" class="tv-pill-btn active" id="tfBtn-60" onclick="setChartTimeframe(60)" title="Last 60 Trading Days">60D</button>
                     <button type="button" class="tv-pill-btn" id="tfBtn-90" onclick="setChartTimeframe(90)" title="Last 90 Trading Days">90D</button>
+                    <button type="button" class="tv-pill-btn" id="tfBtn-1W" onclick="setChartTimeframe('1W')" title="NEPSE 5-Session Weekly Candlesticks (Sun–Thu) + PWH/PWL Liquidity">1W (Weekly)</button>
                   </div>
 
                   <!-- Interactive Indicator Overlay Toggles -->
                   <div class="tv-toolbar-group" title="Click any button to show or hide lines on the chart">
                     <button type="button" class="tv-pill-btn active" id="ovBtn-ladder" onclick="toggleChartOverlay('ladder')" title="Shows Buy Price, Support Floor, Profit Targets & Stop-Loss lines">Trade Ladder</button>
-                    <button type="button" class="tv-pill-btn active" id="ovBtn-smc" onclick="toggleChartOverlay('smc')" title="Smart Money Concepts: Bullish/Bearish Order Blocks (OB), Fair Value Gaps (FVG), BOS/CHoCH & 50% Equilibrium">SMC (OB / FVG / BOS)</button>
+                    <button type="button" class="tv-pill-btn active" id="ovBtn-smc" onclick="toggleChartOverlay('smc')" title="Smart Money Concepts: Bullish/Bearish Order Blocks (OB), Breaker Blocks (BB), Fair Value Gaps (FVG), PWH/PWL Liquidity & 50% Equilibrium">SMC (OB / BB / FVG)</button>
                     <button type="button" class="tv-pill-btn active" id="ovBtn-ema20" onclick="toggleChartOverlay('ema20')" title="20-Day Average Price (Blue Line) — Above this line means Uptrend">EMA 20 (20D Avg)</button>
                     <button type="button" class="tv-pill-btn" id="ovBtn-sma50" onclick="toggleChartOverlay('sma50')" title="50-Day Average Price (Gold Line)">SMA 50</button>
                     <button type="button" class="tv-pill-btn active" id="ovBtn-supertrend" onclick="toggleChartOverlay('supertrend')" title="Safety Trend Line: Green = Uptrend, Red = Downtrend">SuperTrend</button>
@@ -2128,16 +2138,33 @@
               </div>
             </div>
 
-            <!-- PANEL B2: INSTITUTIONAL SMART MONEY CONCEPTS (SMC / ICT) BLUEPRINT -->
+            <!-- PANEL B2: INSTITUTIONAL SMART MONEY CONCEPTS (SMC / ICT v2.0) BLUEPRINT -->
             <div class="card" id="smcBlueprintSection" style="border:1.5px solid rgba(56,189,248,0.38); background:linear-gradient(135deg, rgba(16,185,129,0.06), rgba(56,189,248,0.04));">
               <div class="card-header" style="padding:11px 16px; flex-wrap:wrap; gap:8px;">
                 <div class="card-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                  <span>🏦 Smart Money Concepts (SMC) Institutional Blueprint</span>
+                  <span>🏦 Smart Money Concepts (SMC v2.0) Institutional Blueprint</span>
                   <span class="badge badge-green" id="smcVerdictBadge">SMC Analysis</span>
+                  <span class="badge badge-neutral mono" id="smcScoreBadge">SMC Score: --/100</span>
                 </div>
-                <span class="mono text-muted" id="smcRangeSummaryBadge" style="font-size:11px;">BOS / CHoCH • Order Blocks • FVG • Liquidity • Premium/Discount</span>
+                <span class="mono text-muted" id="smcRangeSummaryBadge" style="font-size:11px;">BOS / CHoCH • Order Blocks • Breaker Blocks • FVG • PWH/PWL Liquidity</span>
               </div>
               <div class="card-body" id="smcBlueprintBody" style="padding:12px 16px;"></div>
+            </div>
+
+            <!-- PANEL B3: NEPSE WEEKLY TRADING PLAYBOOK (SUN–THU SWING & THURSDAY 2:45 PM RULE) -->
+            <div class="card" id="weeklyTradingSection" style="border:1.5px solid rgba(16,185,129,0.42); background:linear-gradient(135deg, rgba(56,189,248,0.07), rgba(16,185,129,0.05));">
+              <div class="card-header" style="padding:11px 16px; flex-wrap:wrap; gap:8px;">
+                <div class="card-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span>📅 NEPSE Weekly Trading Playbook (Sun–Thu Swing &amp; Thursday 2:45 PM Rule)</span>
+                  <span class="badge badge-green" id="weeklyCategoryBadge">Weekly Swing</span>
+                  <span class="badge badge-neutral mono" id="weeklyScoreBadge">Weekly Score: --/100</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span class="mono text-muted" id="weeklyRangeSummaryBadge" style="font-size:11px;">PWH / PWL • Weekly Pivots (P/R1/R2/S1/S2) • Sun–Mon Entry → Thu Exit</span>
+                  <button type="button" class="btn btn-soft-green" style="padding:3px 9px; font-size:10.5px;" onclick="setChartTimeframe('1W'); document.getElementById('chartPlayerSection').scrollIntoView({behavior:'smooth'});">📈 View 1W Chart</button>
+                </div>
+              </div>
+              <div class="card-body" id="weeklyTradingBody" style="padding:12px 16px;"></div>
             </div>
 
             <!-- NEXT PAGE HELPER BUTTON AT BOTTOM OF PAGE 1 -->
@@ -2281,6 +2308,7 @@
               <div class="card-header">
                 <span class="card-title" style="font-size:13px;">WhatsApp Bot Studio</span>
                 <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                  <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!weekly')">!weekly</button>
                   <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!smc')">!smc</button>
                   <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!advisor')">!advisor</button>
                   <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!immediate')">!immediate</button>
@@ -2845,12 +2873,14 @@
 
     function setChartTimeframe(days) {
       chartTimeframeDays = days;
-      [30, 60, 90].forEach(d => {
+      [30, 60, 90, '1W'].forEach(d => {
         const btn = document.getElementById(`tfBtn-${d}`);
         if (btn) btn.classList.toggle('active', d === days);
       });
       const rInfo = document.getElementById('chartRangeInfo');
-      if (rInfo) rInfo.textContent = `${days}D View`;
+      if (rInfo) {
+        rInfo.textContent = days === '1W' ? '1W Weekly Candlesticks (Sun–Thu)' : `${days}D View`;
+      }
       if (activeChartBars.length > 0 && activeChartSignal) {
         drawWhiteChart(activeChartBars, activeChartSignal);
       }
@@ -2893,6 +2923,7 @@
       const ovSec = document.getElementById('overviewBentoSection');
       const exSec = document.getElementById('execMatrixSection');
       const smcSec = document.getElementById('smcBlueprintSection');
+      const wkSec = document.getElementById('weeklyTradingSection');
       const nextStepBar = document.getElementById('page1NextStepBar');
       const p2Wrap = document.getElementById('page2FundamentalsWrap');
       const upNextWrap = document.getElementById('upNextCardWrap');
@@ -2911,6 +2942,7 @@
         if (ovSec) ovSec.style.display = 'flex';
         if (exSec) exSec.style.display = 'grid';
         if (smcSec) smcSec.style.display = 'block';
+        if (wkSec) wkSec.style.display = 'block';
         if (nextStepBar) nextStepBar.style.display = 'flex';
         if (p2Wrap) p2Wrap.style.display = 'none';
         if (upNextWrap) upNextWrap.style.display = 'block';
@@ -2931,6 +2963,7 @@
         if (ovSec) ovSec.style.display = 'none';
         if (exSec) exSec.style.display = 'none';
         if (smcSec) smcSec.style.display = 'none';
+        if (wkSec) wkSec.style.display = 'none';
         if (nextStepBar) nextStepBar.style.display = 'none';
         if (p2Wrap) p2Wrap.style.display = 'flex';
         if (upNextWrap) upNextWrap.style.display = 'block';
@@ -2975,6 +3008,7 @@
         if (ovSec) ovSec.style.display = 'flex';
         if (exSec) exSec.style.display = 'grid';
         if (smcSec) smcSec.style.display = 'block';
+        if (wkSec) wkSec.style.display = 'block';
         if (nextStepBar) nextStepBar.style.display = 'none';
         if (p2Wrap) p2Wrap.style.display = 'flex';
         if (upNextWrap) upNextWrap.style.display = 'block';
@@ -3242,13 +3276,22 @@
     }
 
     async function loadDashboard(isManual = false) {
+      const syncBtn = document.getElementById('syncLiveBtn');
+      const tStart = performance.now();
       try {
         if (isManual) {
-          document.getElementById('dataSourceStatus').textContent = 'Refreshing live NEPSE & Merolagani feed...';
+          document.getElementById('dataSourceStatus').textContent = '⚡ Parallel live syncing NEPSE, Index & MeroLagani...';
+          if (syncBtn) {
+            syncBtn.disabled = true;
+            syncBtn.textContent = '⚡ Syncing...';
+          }
         }
         const res = await fetch(isManual ? '/api/dashboard?refresh=1' : '/api/dashboard');
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || 'Failed to load dashboard');
+
+        const elapsedMs = Math.max(1, Math.round(performance.now() - tStart));
+        const srvMs = data.syncLatencyMs || elapsedMs;
 
         allSignals = data.signals || [];
 
@@ -3284,7 +3327,17 @@
 
         const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         document.getElementById('dataSourceStatus').textContent =
-          `${m.status || 'OFFICIAL NEPSE FEED'} • ${fmtInt(m.totalVolume || 11912550)} Kitta • Updated ${nowStr}`;
+          `⚡ Synced (${srvMs}ms) • ${m.status || 'OFFICIAL NEPSE FEED'} • ${fmtInt(m.totalVolume || 11912550)} Kitta • ${nowStr}`;
+
+        if (syncBtn) {
+          syncBtn.disabled = false;
+          syncBtn.textContent = isManual ? `✔ Synced (${srvMs}ms)` : '⚡ Fast Sync Live';
+          if (isManual) {
+            setTimeout(() => {
+              if (syncBtn) syncBtn.textContent = '⚡ Fast Sync Live';
+            }, 2600);
+          }
+        }
 
         const subStrip = document.getElementById('subIndexStrip');
         const subList = (Array.isArray(m.subIndices) && m.subIndices.length > 0)
@@ -3331,6 +3384,10 @@
       } catch (err) {
         console.error('Dashboard load error:', err);
         document.getElementById('dataSourceStatus').textContent = 'Error loading data: ' + err.message;
+        if (syncBtn) {
+          syncBtn.disabled = false;
+          syncBtn.textContent = '⚡ Fast Sync Live';
+        }
       }
     }
 
@@ -3581,6 +3638,7 @@
       const counts = {
         ALL: allSignals.length,
         IMMEDIATE_BUY: allSignals.filter(s => getBuyCatKey(s) === 'IMMEDIATE_BUY').length,
+        WEEKLY_SWING: allSignals.filter(s => s.weeklyTrading?.isWeeklyBuy && !s.isImmediateSell).length,
         LONG_TERM_BUY: allSignals.filter(s => s.longTerm?.isLongTermHold).length,
         BUY_ON_DIP: allSignals.filter(s => getBuyCatKey(s) === 'BUY_ON_DIP').length,
         SAFE_TO_HOLD: allSignals.filter(s => getSellCatKey(s) === 'SAFE_TO_HOLD').length,
@@ -3596,7 +3654,7 @@
 
     function setCategoryFilter(cat) {
       activeCategory = cat;
-      const tabs = ['ALL', 'IMMEDIATE_BUY', 'LONG_TERM_BUY', 'BUY_ON_DIP', 'SAFE_TO_HOLD', 'IMMEDIATE_SELL', 'SELL_ON_RALLY'];
+      const tabs = ['ALL', 'IMMEDIATE_BUY', 'WEEKLY_SWING', 'LONG_TERM_BUY', 'BUY_ON_DIP', 'SAFE_TO_HOLD', 'IMMEDIATE_SELL', 'SELL_ON_RALLY'];
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-${t}`);
         if (!btn) return;
@@ -3610,6 +3668,10 @@
         currentSortKey = 'exitUrgency';
         currentSortDir = 'desc';
         document.getElementById('sortSelect').value = 'exitUrgency_desc';
+      } else if (cat === 'WEEKLY_SWING') {
+        currentSortKey = 'weeklyScore';
+        currentSortDir = 'desc';
+        document.getElementById('sortSelect').value = 'weeklyScore_desc';
       } else if (cat === 'LONG_TERM_BUY') {
         currentSortKey = 'ltScore';
         currentSortDir = 'desc';
@@ -3627,6 +3689,8 @@
       const [key, dir] = val.split('_');
       const mapKey = {
         score: 'score',
+        weeklyScore: 'weeklyScore',
+        smcScore: 'smcScore',
         ltScore: 'ltScore',
         exitUrgency: 'exitUrgency',
         changePct: 'changePct',
@@ -3669,6 +3733,8 @@
         case 'rsi': return Number(s.indicators?.rsi14 || 0);
         case 'ema20': return Number(s.indicators?.ema20 || 0);
         case 'score': return Number(s.quantScore ?? s.score ?? 0);
+        case 'weeklyScore': return Number(s.weeklyTrading?.weeklyScore ?? 50);
+        case 'smcScore': return Number(s.smc?.smcScore ?? 50);
         case 'ltScore': return Number(s.longTerm?.longTermScore ?? 0);
         case 'exitUrgency': return Number(s.sellUrgencyScore ?? 0);
         default: return Number(s.quantScore ?? 0);
@@ -3785,6 +3851,7 @@
         const bKey = getBuyCatKey(s);
         const sKey = getSellCatKey(s);
         if (activeCategory === 'IMMEDIATE_BUY') return bKey === 'IMMEDIATE_BUY';
+        if (activeCategory === 'WEEKLY_SWING') return Boolean(s.weeklyTrading?.isWeeklyBuy && !s.isImmediateSell);
         if (activeCategory === 'BUY_ON_DIP') return bKey === 'BUY_ON_DIP';
         if (activeCategory === 'LONG_TERM_BUY') return Boolean(s.longTerm?.isLongTermHold);
         if (activeCategory === 'SAFE_TO_HOLD') return sKey === 'SAFE_TO_HOLD';
@@ -4365,10 +4432,11 @@
         ${realFloorsheetHtml}
       `;
 
-      // Render SMC (Smart Money Concepts) Institutional Blueprint Panel
+      // Render SMC v2.0 (Smart Money Concepts) Institutional Blueprint Panel
       const smc = s.smc || null;
       const smcBodyEl = document.getElementById('smcBlueprintBody');
       const smcBadgeEl = document.getElementById('smcVerdictBadge');
+      const smcScoreBadgeEl = document.getElementById('smcScoreBadge');
       const smcRangeEl = document.getElementById('smcRangeSummaryBadge');
       if (smcBodyEl && smc) {
         const isBullSmc = String(smc.smcVerdict || '').includes('🟢');
@@ -4377,46 +4445,120 @@
           smcBadgeEl.textContent = smc.smcVerdict.replace(/[🐋🟢🔴🟡🚨]/g, '').trim();
           smcBadgeEl.className = `badge ${isBullSmc ? 'badge-green' : isBearSmc ? 'badge-red' : 'badge-neutral'}`;
         }
+        if (smcScoreBadgeEl) {
+          const sc = smc.smcScore ?? 55;
+          smcScoreBadgeEl.textContent = `SMC Score: ${sc}/100 (${smc.smcGrade || 'B'})`;
+          smcScoreBadgeEl.className = `badge mono ${sc >= 70 ? 'badge-green-soft' : sc <= 40 ? 'badge-red-soft' : 'badge-neutral'}`;
+        }
         if (smcRangeEl) {
-          smcRangeEl.textContent = `50% Equilibrium: Rs ${fmtNum(smc.equilibrium50, 1)} • OTE (61.8%–78.6%): Rs ${fmtNum(smc.oteLow, 1)}–${fmtNum(smc.oteHigh, 1)}`;
+          smcRangeEl.textContent = `50% Eq: Rs ${fmtNum(smc.equilibrium50, 1)} • OTE (61.8%–78.6%): Rs ${fmtNum(smc.oteLow, 1)}–${fmtNum(smc.oteHigh, 1)} • PWH: Rs ${fmtNum(smc.pwh, 1)} / PWL: Rs ${fmtNum(smc.pwl, 1)}`;
         }
         const rngPct = Math.max(2, Math.min(98, Number(smc.rangePct || 50)));
+        const stp = smc.smcTradePlan || {};
+        const bb = smc.breakerBlock || null;
         smcBodyEl.innerHTML = `
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(205px, 1fr)); gap:10px; margin-bottom:10px;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(195px, 1fr)); gap:10px; margin-bottom:10px;">
             <div style="background:var(--bg-elevated); border:1px solid var(--border-strong); border-left:4px solid ${smc.structureType.includes('BULLISH') ? 'var(--green-main)' : smc.structureType.includes('BEARISH') ? 'var(--red-main)' : 'var(--accent-blue)'}; border-radius:10px; padding:10px 12px;">
               <div style="font-size:10px; font-weight:800; color:var(--text-secondary); text-transform:uppercase;">1. MARKET STRUCTURE (BOS / CHoCH)</div>
-              <div class="mono" style="font-size:13.5px; font-weight:800; color:var(--text-main); margin:3px 0;">${smc.structureType}</div>
+              <div class="mono" style="font-size:13px; font-weight:800; color:var(--text-main); margin:3px 0;">${smc.structureType}</div>
               <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">${smc.structureDesc}</div>
             </div>
 
             <div style="background:var(--bg-elevated); border:1px solid var(--green-border); border-left:4px solid var(--green-main); border-radius:10px; padding:10px 12px;">
               <div style="font-size:10px; font-weight:800; color:var(--green-dark); text-transform:uppercase;">2. BULLISH ORDER BLOCK (DEMAND OB)</div>
-              <div class="mono text-green" style="font-size:15.5px; font-weight:800; margin:3px 0;">${smc.bullishOB?.zoneText || tp.demandOrderBlock}</div>
-              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;"><strong>${smc.bullishOB?.status || 'Institutional Buy Zone'}</strong> • Midpoint: Rs ${fmtNum(smc.bullishOB?.midpoint, 1)}</div>
+              <div class="mono text-green" style="font-size:15px; font-weight:800; margin:3px 0;">${smc.bullishOB?.zoneText || tp.demandOrderBlock}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;"><strong>${smc.bullishOB?.status || 'Institutional Buy Zone'}</strong> • Mid: Rs ${fmtNum(smc.bullishOB?.midpoint, 1)}</div>
             </div>
 
             <div style="background:var(--bg-elevated); border:1px solid var(--red-border); border-left:4px solid var(--red-main); border-radius:10px; padding:10px 12px;">
-              <div style="font-size:10px; font-weight:800; color:var(--red-dark); text-transform:uppercase;">3. BEARISH ORDER BLOCK (SUPPLY OB)</div>
-              <div class="mono text-red" style="font-size:15.5px; font-weight:800; margin:3px 0;">${smc.bearishOB?.zoneText || tp.supplyOrderBlock}</div>
-              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;"><strong>${smc.bearishOB?.status || 'Institutional Supply Zone'}</strong> • Midpoint: Rs ${fmtNum(smc.bearishOB?.midpoint, 1)}</div>
+              <div style="font-size:10px; font-weight:800; color:var(--red-dark); text-transform:uppercase;">3. BEARISH OB &amp; BREAKER BLOCK</div>
+              <div class="mono text-red" style="font-size:14.5px; font-weight:800; margin:3px 0;">${smc.bearishOB?.zoneText || tp.supplyOrderBlock}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">${bb ? `<strong>${bb.type}:</strong> ${bb.zoneText} (${bb.status})` : `<strong>${smc.bearishOB?.status || 'Supply OB'}</strong> • Mid: Rs ${fmtNum(smc.bearishOB?.midpoint, 1)}`}</div>
             </div>
 
             <div style="background:var(--bg-elevated); border:1px solid var(--border-strong); border-left:4px solid var(--accent-blue); border-radius:10px; padding:10px 12px;">
-              <div style="font-size:10px; font-weight:800; color:var(--accent-blue); text-transform:uppercase;">4. FAIR VALUE GAP (FVG) &amp; LIQUIDITY</div>
-              <div class="mono" style="font-size:12.5px; font-weight:800; color:var(--text-main); margin:3px 0;">${smc.activeFVGText}</div>
-              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;"><strong>Liquidity:</strong> ${smc.liquidityStatus}</div>
+              <div style="font-size:10px; font-weight:800; color:var(--accent-blue); text-transform:uppercase;">4. FVG &amp; PWH/PWL LIQUIDITY</div>
+              <div class="mono" style="font-size:12px; font-weight:800; color:var(--text-main); margin:3px 0;">${smc.activeFVGText}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;"><strong>Liq:</strong> ${smc.liquidityStatus}</div>
             </div>
 
             <div style="background:var(--bg-elevated); border:1px solid var(--border-strong); border-left:4px solid ${smc.isDiscount ? 'var(--green-main)' : 'var(--amber-main)'}; border-radius:10px; padding:10px 12px;">
-              <div style="font-size:10px; font-weight:800; color:${smc.isDiscount ? 'var(--green-dark)' : 'var(--amber-main)'}; text-transform:uppercase;">5. PREMIUM vs. DISCOUNT &amp; OTE</div>
-              <div class="mono" style="font-size:12.5px; font-weight:800; color:var(--text-main); margin:3px 0;">${smc.dealingZone}</div>
-              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">OTE Buy Pocket (61.8%–78.6%): <strong>Rs ${fmtNum(smc.oteLow, 1)} – Rs ${fmtNum(smc.oteHigh, 1)}</strong></div>
+              <div style="font-size:10px; font-weight:800; color:${smc.isDiscount ? 'var(--green-dark)' : 'var(--amber-main)'}; text-transform:uppercase;">5. EXACT SMC EXECUTION LADDER</div>
+              <div class="mono text-green" style="font-size:12.5px; font-weight:800; margin:3px 0;">Entry Rs ${fmtNum(stp.entryPrice || exactBuyPrice, 1)} • R:R 1:${fmtNum(stp.riskReward || 2.1, 2)}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">Stop: <strong class="text-red">Rs ${fmtNum(stp.stopLoss || exactStop, 1)}</strong> • T1: <strong class="text-green">Rs ${fmtNum(stp.target1 || exactSell1, 1)}</strong> • T2: <strong>Rs ${fmtNum(stp.target2 || exactSell2, 1)}</strong></div>
             </div>
           </div>
 
           <div style="padding:8px 12px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; font-size:11.5px; color:var(--text-secondary); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px;">
-            <div><strong style="color:var(--text-main);">🎯 SMC Institutional Playbook:</strong> ${smc.smcPlaybook}</div>
-            <div class="mono" style="font-size:11px; color:var(--accent-blue);">Dealing Range Position: <strong>${rngPct}%</strong> (0% SSL Rs ${fmtNum(smc.rangeLow, 0)} ── 50% Eq Rs ${fmtNum(smc.equilibrium50, 0)} ── 100% BSL Rs ${fmtNum(smc.rangeHigh, 0)})</div>
+            <div><strong style="color:var(--text-main);">🎯 SMC Institutional Playbook (${smc.dealingZone}):</strong> ${smc.smcPlaybook}</div>
+            <div class="mono" style="font-size:11px; color:var(--accent-blue);">Dealing Range: <strong>${rngPct}%</strong> (0% SSL Rs ${fmtNum(smc.rangeLow, 0)} ── 50% Eq Rs ${fmtNum(smc.equilibrium50, 0)} ── 100% BSL Rs ${fmtNum(smc.rangeHigh, 0)})</div>
+          </div>
+        `;
+      }
+
+      // Render NEPSE Weekly Trading Playbook (Sun–Thu Swing & Thursday 2:45 PM Rule)
+      const wk = s.weeklyTrading || null;
+      const wkBodyEl = document.getElementById('weeklyTradingBody');
+      const wkCatBadgeEl = document.getElementById('weeklyCategoryBadge');
+      const wkScoreBadgeEl = document.getElementById('weeklyScoreBadge');
+      const wkRangeEl = document.getElementById('weeklyRangeSummaryBadge');
+      if (wkBodyEl && wk) {
+        const isWkBuy = Boolean(wk.isWeeklyBuy && !s.isImmediateSell);
+        const isWkSell = String(wk.weeklyCategory || '').includes('🔴') || s.isImmediateSell;
+        if (wkCatBadgeEl) {
+          wkCatBadgeEl.textContent = (wk.weeklyCategory || 'WEEKLY SWING').replace(/[🔥🟢🎯🟡🔴]/g, '').trim();
+          wkCatBadgeEl.className = `badge ${isWkSell ? 'badge-red' : isWkBuy ? 'badge-green' : 'badge-neutral'}`;
+        }
+        if (wkScoreBadgeEl) {
+          const wsc = wk.weeklyScore ?? 60;
+          wkScoreBadgeEl.textContent = `Weekly Score: ${wsc}/100 (${wk.weeklyGrade || 'B+'})`;
+          wkScoreBadgeEl.className = `badge mono ${wsc >= 68 ? 'badge-green-soft' : wsc < 45 ? 'badge-red-soft' : 'badge-neutral'}`;
+        }
+        const tw = wk.thisWeek || {};
+        const pw = wk.prevWeek || {};
+        const piv = wk.pivots || {};
+        const wPlan = wk.weeklyPlan || {};
+        if (wkRangeEl) {
+          wkRangeEl.textContent = `PWH: Rs ${fmtNum(pw.high, 1)} • PWL: Rs ${fmtNum(pw.low, 1)} • Weekly Pivot (P): Rs ${fmtNum(piv.pivot, 1)} • R1: Rs ${fmtNum(piv.r1, 1)} • S1: Rs ${fmtNum(piv.s1, 1)}`;
+        }
+        const wkChg = Number(tw.changePct ?? 0);
+        const wkSign = wkChg > 0 ? '+' : '';
+        wkBodyEl.innerHTML = `
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(195px, 1fr)); gap:10px; margin-bottom:10px;">
+            <div style="background:var(--bg-elevated); border:1px solid var(--border-strong); border-left:4px solid ${wk.weeklyTrend?.includes('BULLISH') ? 'var(--green-main)' : wk.weeklyTrend?.includes('BEARISH') ? 'var(--red-main)' : 'var(--accent-blue)'}; border-radius:10px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:800; color:var(--text-secondary); text-transform:uppercase;">1. THIS WEEK (SUN–THU CANDLE)</div>
+              <div class="mono ${wkChg >= 0 ? 'text-green' : 'text-red'}" style="font-size:14.5px; font-weight:800; margin:3px 0;">${wkSign}${fmtNum(wkChg, 2)}% • ${wk.weeklyTrend}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">1W RSI: <strong>${fmtNum(wk.weeklyRSI, 1)}</strong> • Vol vs 4W: <strong>${fmtNum(tw.volVsAvgRatio, 2)}x</strong> • ${tw.candleType || 'Standard'}</div>
+            </div>
+
+            <div style="background:var(--bg-elevated); border:1px solid var(--border-strong); border-left:4px solid var(--accent-blue); border-radius:10px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:800; color:var(--accent-blue); text-transform:uppercase;">2. PREV WEEK HIGH / LOW (PWH / PWL)</div>
+              <div class="mono" style="font-size:14px; font-weight:800; color:var(--text-main); margin:3px 0;">PWH Rs ${fmtNum(pw.high, 1)} | PWL Rs ${fmtNum(pw.low, 1)}</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">${wk.brokePWH ? '<strong class="text-green">✔ Broke Above PWH!</strong>' : wk.sweptPWL ? '<strong class="text-green">✔ Swept PWL &amp; Reclaimed!</strong>' : `Prev Week Close (PWC): <strong>Rs ${fmtNum(pw.close, 1)}</strong>`}</div>
+            </div>
+
+            <div style="background:var(--bg-elevated); border:1px solid var(--green-border); border-left:4px solid var(--green-main); border-radius:10px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:800; color:var(--green-dark); text-transform:uppercase;">3. SUN–MON ENTRY &amp; TUE–WED DIP</div>
+              <div class="mono text-green" style="font-size:14.5px; font-weight:800; margin:3px 0;">Buy Rs ${fmtNum(wPlan.sunMonEntry, 1)} (${wPlan.recommendedKitta || 50}k)</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">Tue–Wed Support Dip Add: <strong class="text-green">Rs ${fmtNum(wPlan.tueWedDipAdd, 1)}</strong> • W-EMA(4): Rs ${fmtNum(wk.weeklyEMA4, 1)}</div>
+            </div>
+
+            <div style="background:var(--bg-elevated); border:1px solid var(--green-border); border-left:4px solid var(--green-main); border-radius:10px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:800; color:var(--green-dark); text-transform:uppercase;">4. THU TARGET 1 &amp; NEXT WEEK T2</div>
+              <div class="mono text-green" style="font-size:14.5px; font-weight:800; margin:3px 0;">T1: Rs ${fmtNum(wPlan.thursdayTarget1, 1)} (+${fmtNum(wPlan.target1GainPct, 1)}%)</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">Next Week T2: <strong class="text-green">Rs ${fmtNum(wPlan.nextWeekTarget2, 1)} (+${fmtNum(wPlan.target2GainPct, 1)}%)</strong> • R:R <strong>1:${fmtNum(wPlan.weeklyRR, 2)}</strong></div>
+            </div>
+
+            <div style="background:var(--bg-elevated); border:1px solid var(--red-border); border-left:4px solid var(--red-main); border-radius:10px; padding:10px 12px;">
+              <div style="font-size:10px; font-weight:800; color:var(--red-dark); text-transform:uppercase;">5. WEEKLY PIVOTS &amp; STOP-LOSS</div>
+              <div class="mono text-red" style="font-size:14.5px; font-weight:800; margin:3px 0;">SL: Rs ${fmtNum(wPlan.weeklyStopLoss, 1)} (-${fmtNum(wPlan.stopRiskPct, 1)}%)</div>
+              <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">Pivot P: <strong>Rs ${fmtNum(piv.pivot, 0)}</strong> • S1: <strong>Rs ${fmtNum(piv.s1, 0)}</strong> • R1: <strong>Rs ${fmtNum(piv.r1, 0)}</strong></div>
+            </div>
+          </div>
+
+          <div style="padding:9px 13px; background:var(--bg-elevated); border:1px solid var(--border); border-left:4px solid ${isWkSell ? 'var(--red-main)' : 'var(--green-main)'}; border-radius:8px; font-size:11.5px; color:var(--text-secondary); display:flex; flex-direction:column; gap:4px;">
+            <div><strong style="color:var(--text-main);">📅 Sun–Thu Weekly Action Plan:</strong> ${wPlan.weeklyActionSummary || ''}</div>
+            <div><strong style="color:var(--accent-blue);">🕒 Thursday 2:45 PM Weekend Hold vs. Profit-Booking Rule:</strong> ${wPlan.thursdayHoldRule || ''}</div>
           </div>
         `;
       }
@@ -4763,6 +4905,44 @@
       }
     }
 
+    function aggregateDailyToWeeklyBars(dailyBars, sig) {
+      const src = Array.isArray(dailyBars) ? dailyBars : [];
+      if (src.length < 5 && Array.isArray(sig?.weeklyTrading?.weeklyBars) && sig.weeklyTrading.weeklyBars.length > 0) {
+        return sig.weeklyTrading.weeklyBars;
+      }
+      const n = src.length;
+      const weekly = [];
+      for (let endIdx = n; endIdx >= 3; endIdx -= 5) {
+        const startIdx = Math.max(0, endIdx - 5);
+        const chunk = src.slice(startIdx, endIdx);
+        if (chunk.length === 0) break;
+        const wOpen = Number(chunk[0].open || chunk[0].close || 0);
+        const wClose = Number(chunk[chunk.length - 1].close || 0);
+        const wHigh = Math.max(...chunk.map(b => Number(b.high || b.close || 0)));
+        const wLow = Math.min(...chunk.map(b => Number(b.low || b.close || 0)));
+        const wVol = chunk.reduce((acc, b) => acc + Number(b.volume || 0), 0);
+        weekly.unshift({
+          date: `Wk ${String(chunk[chunk.length - 1].date || '').slice(0, 10)}`,
+          open: wOpen,
+          high: wHigh,
+          low: wLow,
+          close: wClose,
+          volume: wVol
+        });
+      }
+      if (weekly.length < 8 && Array.isArray(sig?.weeklyTrading?.weeklyBars) && sig.weeklyTrading.weeklyBars.length > weekly.length) {
+        return sig.weeklyTrading.weeklyBars.map(w => ({
+          date: `Wk ${String(w.date || '').slice(0, 10)}`,
+          open: w.open,
+          high: w.high,
+          low: w.low,
+          close: w.close,
+          volume: w.volume
+        }));
+      }
+      return weekly;
+    }
+
     function drawWhiteChart(bars, sig, hoverIdx = null) {
       activeChartBars = bars || [];
       activeChartSignal = sig;
@@ -4774,8 +4954,9 @@
       const H = canvas.height;
       ctx.clearRect(0, 0, W, H);
 
-      const allBars = bars || [];
-      const recent = allBars.slice(-chartTimeframeDays);
+      const isWeeklyMode = chartTimeframeDays === '1W';
+      const allBars = isWeeklyMode ? aggregateDailyToWeeklyBars(bars || [], sig) : (bars || []);
+      const recent = isWeeklyMode ? allBars.slice(-28) : allBars.slice(-Number(chartTimeframeDays || 60));
       if (recent.length === 0) return;
 
       const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
@@ -4802,7 +4983,7 @@
       const stBullAll = new Array(nAll).fill(true);
       const rsi14All = new Array(nAll).fill(50);
 
-      const k20 = 2 / 21;
+      const k20 = isWeeklyMode ? (2 / 5) : (2 / 21);
       let runEma = allBars[0]?.close || 0;
       let avgG = 0;
       let avgL = 0;
@@ -4815,18 +4996,19 @@
         const l = Number(allBars[i].low || c);
         const pc = i > 0 ? Number(allBars[i - 1].close || c) : c;
 
-        // EMA 20
+        // EMA 20 (or Weekly EMA 4 in 1W mode)
         runEma = i === 0 ? c : c * k20 + runEma * (1 - k20);
         ema20All[i] = runEma;
 
-        // SMA 50
-        const s50Start = Math.max(0, i - 49);
+        // SMA 50 (or Weekly SMA 10 in 1W mode)
+        const smaPeriod = isWeeklyMode ? 9 : 49;
+        const s50Start = Math.max(0, i - smaPeriod);
         let sum50 = 0;
         for (let j = s50Start; j <= i; j++) sum50 += Number(allBars[j].close || 0);
         sma50All[i] = sum50 / (i - s50Start + 1);
 
         // Bollinger 20,2 & VWAP 20
-        const s20Start = Math.max(0, i - 19);
+        const s20Start = Math.max(0, i - (isWeeklyMode ? 7 : 19));
         let sum20 = 0;
         let pvSum = 0;
         let vSum = 0;
@@ -4862,19 +5044,20 @@
         }
 
         // Wilder's RSI(14)
+        const rPer = isWeeklyMode ? Math.min(8, Math.max(3, nAll - 2)) : 14;
         if (i > 0) {
           const diff = c - pc;
           const gain = diff > 0 ? diff : 0;
           const loss = diff < 0 ? -diff : 0;
-          if (i <= 14) {
-            avgG += gain / 14;
-            avgL += loss / 14;
-            if (i === 14) {
+          if (i <= rPer) {
+            avgG += gain / rPer;
+            avgL += loss / rPer;
+            if (i === rPer) {
               rsi14All[i] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
             }
           } else {
-            avgG = (avgG * 13 + gain) / 14;
-            avgL = (avgL * 13 + loss) / 14;
+            avgG = (avgG * (rPer - 1) + gain) / rPer;
+            avgL = (avgL * (rPer - 1) + loss) / rPer;
             rsi14All[i] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
           }
         }
@@ -4915,14 +5098,25 @@
       const rsi14Slice = rsi14All.slice(sliceOffset);
 
       const exExec = sig?.exactExecution || {};
+      const wkPlan = sig?.weeklyTrading?.weeklyPlan || {};
       const ltp = Number(sig?.ltp || recent[recent.length - 1]?.close || 0);
-      const buyPrice = Number(exExec.exactBuyPrice || sig?.indicators?.ema20 || ltp);
-      const rawDip = Number(exExec.exactBackupDipPrice || sig?.volumeProfile?.poc || sig?.tradePlan?.support1 || (buyPrice * 0.972));
+      const buyPrice = isWeeklyMode && wkPlan.sunMonEntry
+        ? Number(wkPlan.sunMonEntry)
+        : Number(exExec.exactBuyPrice || sig?.indicators?.ema20 || ltp);
+      const rawDip = isWeeklyMode && wkPlan.tueWedDipAdd
+        ? Number(wkPlan.tueWedDipAdd)
+        : Number(exExec.exactBackupDipPrice || sig?.volumeProfile?.poc || sig?.tradePlan?.support1 || (buyPrice * 0.972));
       const supportPrice = rawDip < buyPrice * 0.992 ? rawDip : Number((buyPrice * 0.972).toFixed(1));
-      const rawStop = Number(exExec.exactStopLossPrice || sig?.executionMatrix?.exits?.hardStop?.price || (ltp * 0.94));
+      const rawStop = isWeeklyMode && wkPlan.weeklyStopLoss
+        ? Number(wkPlan.weeklyStopLoss)
+        : Number(exExec.exactStopLossPrice || sig?.executionMatrix?.exits?.hardStop?.price || (ltp * 0.94));
       const stopPrice = rawStop < supportPrice * 0.985 ? rawStop : Number((supportPrice * 0.972).toFixed(1));
-      const target1Price = Number(exExec.exactSellTarget1 || sig?.executionMatrix?.exits?.exit1?.price || (ltp * 1.06));
-      const target2Price = Number(exExec.exactSellTarget2 || sig?.executionMatrix?.exits?.exit2?.price || (target1Price * 1.05));
+      const target1Price = isWeeklyMode && wkPlan.thursdayTarget1
+        ? Number(wkPlan.thursdayTarget1)
+        : Number(exExec.exactSellTarget1 || sig?.executionMatrix?.exits?.exit1?.price || (ltp * 1.06));
+      const target2Price = isWeeklyMode && wkPlan.nextWeekTarget2
+        ? Number(wkPlan.nextWeekTarget2)
+        : Number(exExec.exactSellTarget2 || sig?.executionMatrix?.exits?.exit2?.price || (target1Price * 1.05));
 
       let minP = Math.min(...recent.map(b => b.low));
       let maxP = Math.max(...recent.map(b => b.high));
@@ -4961,7 +5155,7 @@
 
       const maxVol = Math.max(1, ...recent.map(b => b.volume || 0));
       const stepX = plotW / recent.length;
-      const bodyW = Math.max(3, Math.min(9.5, stepX * 0.66));
+      const bodyW = Math.max(3, Math.min(11, stepX * 0.66));
 
       // 1A. Bollinger Bands Shaded Channel (if enabled)
       if (chartOverlays.bb) {
@@ -5008,7 +5202,7 @@
         ctx.fillRect(padL, yTop, plotW, Math.max(5, yBot - yTop));
       }
 
-      // 1C. Smart Money Concepts (SMC) Order Blocks (OB), Fair Value Gaps (FVG) & 50% Equilibrium Overlay
+      // 1C. Smart Money Concepts (SMC v2.0) Order Blocks (OB), Breaker Blocks (BB), Fair Value Gaps (FVG), PWH/PWL & 50% Equilibrium Overlay
       if (chartOverlays.smc && sig?.smc) {
         const smcObj = sig.smc;
         ctx.save();
@@ -5044,6 +5238,21 @@
           ctx.fillText(`BEAR OB (${smcObj.bearishOB.zoneText})`, padL + plotW * 0.26, Math.max(padT + 10, yObTop + 10));
         }
 
+        // Breaker Block (BB Polarity-Flipped Zone)
+        if (smcObj.breakerBlock && smcObj.breakerBlock.high >= minP && smcObj.breakerBlock.low <= maxP) {
+          const bbObj = smcObj.breakerBlock;
+          const yBbTop = Math.max(padT, Math.min(padT + pricePlotH, yOf(bbObj.high)));
+          const yBbBot = Math.max(padT, Math.min(padT + pricePlotH, yOf(bbObj.low)));
+          const bbH = Math.max(5, yBbBot - yBbTop);
+          ctx.fillStyle = isDark ? 'rgba(168, 85, 247, 0.14)' : 'rgba(168, 85, 247, 0.11)';
+          ctx.fillRect(padL + plotW * 0.35, yBbTop, plotW * 0.65, bbH);
+          ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
+          ctx.setLineDash([2, 2]);
+          ctx.strokeRect(padL + plotW * 0.35, yBbTop, plotW * 0.65, bbH);
+          ctx.fillStyle = '#c084fc';
+          ctx.fillText(`${bbObj.type}: ${bbObj.zoneText}`, padL + plotW * 0.36, Math.max(padT + 10, yBbTop + 9));
+        }
+
         // Unfilled Fair Value Gap (FVG Imbalance Zone)
         const activeFvg = smcObj.bullishFVG || smcObj.bearishFVG;
         if (activeFvg && activeFvg.top >= minP && activeFvg.bottom <= maxP) {
@@ -5054,6 +5263,26 @@
           ctx.fillRect(padL + plotW * 0.45, yFvgTop, plotW * 0.55, fvgH);
           ctx.fillStyle = '#38bdf8';
           ctx.fillText(`${activeFvg.type}: ${activeFvg.zoneText}`, padL + plotW * 0.46, Math.max(padT + 10, yFvgTop + 9));
+        }
+
+        // Previous Week High (PWH) & Previous Week Low (PWL) Liquidity Lines
+        if (smcObj.pwh >= minP && smcObj.pwh <= maxP) {
+          const yPwh = yOf(smcObj.pwh);
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath(); ctx.moveTo(padL, yPwh); ctx.lineTo(W - padR, yPwh); ctx.stroke();
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillText(`PWH LIQ: Rs ${fmtNum(smcObj.pwh, 0)}`, padL + 6, Math.max(padT + 10, yPwh - 3));
+        }
+        if (smcObj.pwl >= minP && smcObj.pwl <= maxP) {
+          const yPwl = yOf(smcObj.pwl);
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.5)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath(); ctx.moveTo(padL, yPwl); ctx.lineTo(W - padR, yPwl); ctx.stroke();
+          ctx.fillStyle = '#10b981';
+          ctx.fillText(`PWL LIQ: Rs ${fmtNum(smcObj.pwl, 0)}`, padL + 6, Math.min(padT + pricePlotH - 4, yPwl + 10));
         }
 
         // 50% Equilibrium Line (Premium vs Discount Divider)
@@ -5067,7 +5296,7 @@
           ctx.lineTo(W - padR, yEq);
           ctx.stroke();
           ctx.fillStyle = '#f59e0b';
-          ctx.fillText(`SMC EQ 50%: Rs ${fmtNum(smcObj.equilibrium50, 0)} (${smcObj.structureTag})`, padL + 6, Math.max(padT + 10, yEq - 4));
+          ctx.fillText(`SMC EQ 50%: Rs ${fmtNum(smcObj.equilibrium50, 0)} (${smcObj.structureTag} • Score ${smcObj.smcScore || 60}/100)`, padL + 6, Math.max(padT + 10, yEq - 4));
         }
         ctx.restore();
       }
@@ -5254,10 +5483,10 @@
         // Sub-pane label & right-axis RSI pill
         const activeRsiVal = hoverIdx !== null && rsi14Slice[hoverIdx] !== undefined
           ? rsi14Slice[hoverIdx]
-          : (sig?.indicators?.rsi14 ?? rsi14Slice[rsi14Slice.length - 1] ?? 50);
+          : (isWeeklyMode ? (sig?.weeklyTrading?.weeklyRSI ?? rsi14Slice[rsi14Slice.length - 1] ?? 50) : (sig?.indicators?.rsi14 ?? rsi14Slice[rsi14Slice.length - 1] ?? 50));
         ctx.fillStyle = isDark ? '#94a3b8' : '#475569';
         ctx.font = 'bold 9.5px JetBrains Mono, monospace';
-        ctx.fillText(`RSI (14): ${fmtNum(activeRsiVal, 1)}  [70 Overbought / 30 Oversold]`, padL + 4, rsiTop + 10);
+        ctx.fillText(`${isWeeklyMode ? '1W RSI' : 'RSI (14)'}: ${fmtNum(activeRsiVal, 1)}  [70 Overbought / 30 Oversold]`, padL + 4, rsiTop + 10);
 
         const rPillX = W - padR + 5;
         const rPillY = Math.max(rsiTop + 8, Math.min(rsiTop + rsiPlotH - 8, yOfRsi(activeRsiVal)));
@@ -5315,16 +5544,16 @@
         const barSt = stValSlice[targetIdx] ?? sig?.indicators?.supertrend ?? 0;
         hud.innerHTML = `
           <div style="display:flex; flex-wrap:wrap; gap:11px; align-items:center;">
-            <strong style="color:var(--text-main);">${String(targetBar.date || 'Latest').slice(0, 10)}</strong>
+            <strong style="color:var(--text-main);">${String(targetBar.date || 'Latest').slice(0, 14)}</strong>
             <span>O: <strong style="color:var(--text-main);">Rs ${fmtNum(targetBar.open, 1)}</strong></span>
             <span>H: <strong class="text-green">Rs ${fmtNum(targetBar.high, 1)}</strong></span>
             <span>L: <strong class="text-red">Rs ${fmtNum(targetBar.low, 1)}</strong></span>
             <span>C: <strong style="color:${clr};">Rs ${fmtNum(targetBar.close, 1)} (${sgn}${fmtNum(chg, 2)}%)</strong></span>
             <span>Vol: <strong style="color:var(--text-main);">${fmtInt(targetBar.volume)}</strong></span>
-            <span style="color:#a855f7;">RSI(14): <strong>${fmtNum(barRsi, 1)}</strong></span>
+            <span style="color:#a855f7;">${isWeeklyMode ? '1W RSI' : 'RSI(14)'}: <strong>${fmtNum(barRsi, 1)}</strong></span>
             <span style="color:${stBullSlice[targetIdx] ? '#10b981' : '#f43f5e'};">ST: <strong>Rs ${fmtNum(barSt, 1)}</strong></span>
           </div>
-          <span class="mono" style="color:var(--accent-blue);">Buy: Rs ${fmtNum(buyPrice, 1)} | T1: Rs ${fmtNum(target1Price, 1)} | SL: Rs ${fmtNum(stopPrice, 1)}</span>
+          <span class="mono" style="color:var(--accent-blue);">${isWeeklyMode ? 'Sun–Mon Buy' : 'Buy'}: Rs ${fmtNum(buyPrice, 1)} | T1: Rs ${fmtNum(target1Price, 1)} | SL: Rs ${fmtNum(stopPrice, 1)}</span>
         `;
       }
 
@@ -5334,8 +5563,8 @@
       dateIdxs.forEach(idx => {
         const b = recent[idx];
         if (!b || !b.date) return;
-        const x = Math.max(padL, Math.min(W - padR - 58, padL + idx * stepX - 20));
-        ctx.fillText(String(b.date).slice(0, 10), x, H - 7);
+        const x = Math.max(padL, Math.min(W - padR - 64, padL + idx * stepX - 20));
+        ctx.fillText(String(b.date).slice(0, 14), x, H - 7);
       });
     }
 
@@ -5350,8 +5579,10 @@
         const padL = 16;
         const padR = 136;
         const plotW = canvas.width - padL - padR;
-        const recent = activeChartBars.slice(-chartTimeframeDays);
-        const stepX = plotW / recent.length;
+        const isWeeklyMode = chartTimeframeDays === '1W';
+        const allBars = isWeeklyMode ? aggregateDailyToWeeklyBars(activeChartBars, activeChartSignal) : activeChartBars;
+        const recent = isWeeklyMode ? allBars.slice(-28) : allBars.slice(-Number(chartTimeframeDays || 60));
+        const stepX = plotW / Math.max(1, recent.length);
         const idx = Math.floor((mouseX - padL) / stepX);
         if (idx >= 0 && idx < recent.length) {
           drawWhiteChart(activeChartBars, activeChartSignal, idx);
@@ -6542,9 +6773,9 @@
     loadDashboard(false);
     setInterval(() => {
       if (window.lastMarketIsOpen) {
-        loadDashboard(false);
+        loadDashboard(true);
       }
-    }, 60000);
+    }, 15000);
   </script>
 </body>
 </html>

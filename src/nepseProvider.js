@@ -952,26 +952,39 @@ class NepseProvider {
   async refreshLiveQuotes(force = false) {
     const now = Date.now();
     const { isOpen } = this.isMarketOpenNow();
-    // When NEPSE market is closed and we already have 100+ verified EOD quotes loaded, do NOT re-scrape and mutate quotes unless explicitly forced
-    if (!isOpen && !force && this.quotes.size > 100) {
+    if (!isOpen && this.quotes.size > 100) {
+      this.applyMeroSharePortfolioLocks();
+      this.syncNepseIndexQuote();
       return;
     }
-    const minIntervalMs = !isOpen && this.quotes.size > 100 ? 3600000 : 60000;
+    const minIntervalMs = !isOpen && this.quotes.size > 100 ? 3600000 : 30000;
     if (!force && this.lastScrapedAt > 0 && now - this.lastScrapedAt < minIntervalMs) {
       return;
     }
     this.lastScrapedAt = now;
 
-    // Tier 0A: Fetch Official Real-Time NEPSE Index, Turnover, Breadth & Sensitive/Float Indices from NepaliPaisa API
+    const ua = { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" };
+    const fetchWithTimeout = async (urlStr, ms = 2200) => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), ms);
+      try {
+        return await fetch(urlStr, { headers: ua, signal: ctrl.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    // Run Official Index, Sub-Index, and Live Market feeds in PARALLEL for sub-2s live sync
+    const [idxOutcome, subOutcome, meroOutcome] = await Promise.allSettled([
+      fetchWithTimeout("https://www.nepalipaisa.com/api/GetIndexLive", 2200),
+      fetchWithTimeout("https://www.nepalipaisa.com/api/GetSubIndexLive", 2200),
+      cheerio ? fetchWithTimeout("https://merolagani.com/LatestMarket.aspx", 2500) : Promise.resolve(null)
+    ]);
+
+    // Tier 0A: Process Official Real-Time NEPSE Index
     try {
-      const idxCtrl = new AbortController();
-      const idxTimeout = setTimeout(() => idxCtrl.abort(), 4500);
-      const idxRes = await fetch("https://www.nepalipaisa.com/api/GetIndexLive", {
-        headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
-        signal: idxCtrl.signal
-      });
-      clearTimeout(idxTimeout);
-      if (idxRes.ok) {
+      const idxRes = idxOutcome.status === "fulfilled" ? idxOutcome.value : null;
+      if (idxRes && idxRes.ok) {
         const idxJson = await idxRes.json();
         const rows = Array.isArray(idxJson?.result) ? idxJson.result : [];
         const nepseRow = rows.find((r) => String(r.indexName).toLowerCase() === "nepse");
@@ -1014,16 +1027,10 @@ class NepseProvider {
       }
     } catch (_) {}
 
-    // Tier 0B: Fetch Official 13 Sector Sub-Indices from NepaliPaisa API
+    // Tier 0B: Process Official 13 Sector Sub-Indices
     try {
-      const subCtrl = new AbortController();
-      const subTimeout = setTimeout(() => subCtrl.abort(), 4500);
-      const subRes = await fetch("https://www.nepalipaisa.com/api/GetSubIndexLive", {
-        headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
-        signal: subCtrl.signal
-      });
-      clearTimeout(subTimeout);
-      if (subRes.ok) {
+      const subRes = subOutcome.status === "fulfilled" ? subOutcome.value : null;
+      if (subRes && subRes.ok) {
         const subJson = await subRes.json();
         const subRows = Array.isArray(subJson?.result) ? subJson.result : [];
         if (subRows.length > 0) {
@@ -1042,17 +1049,10 @@ class NepseProvider {
 
     if (!cheerio) return;
 
-    // Tier 1: Merolagani Live Market (Cols: 0=Symbol, 1=LTP, 2=%Change, 3=High, 4=Low, 5=Open, 6=Qty, 7=Turnover)
+    // Tier 1: Process Merolagani Live Market (already fetched in parallel)
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4500);
-      const res = await fetch("https://merolagani.com/LatestMarket.aspx", {
-        headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-
-      if (res.ok) {
+      const res = meroOutcome.status === "fulfilled" ? meroOutcome.value : null;
+      if (res && res.ok) {
         const html = await res.text();
         const $ = cheerio.load(html);
         let updatedCount = 0;
@@ -1108,16 +1108,10 @@ class NepseProvider {
       }
     } catch (_) {}
 
-    // Tier 2: Sharesansar Fallback
+    // Tier 2: Sharesansar Fallback (2.2s fast timeout)
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4500);
-      const res = await fetch("https://www.sharesansar.com/today-share-price", {
-        headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" },
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-      if (res.ok) {
+      const res = await fetchWithTimeout("https://www.sharesansar.com/today-share-price", 2200);
+      if (res && res.ok) {
         const html = await res.text();
         const $ = cheerio.load(html);
         let count = 0;

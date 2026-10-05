@@ -274,6 +274,7 @@ const requestHandler = async (req, res) => {
   // 2. Live NEPSE Market & Signals Overview API (for Control Center UI)
   if (pathname === "/api/dashboard" && req.method === "GET") {
     try {
+      const t0 = Date.now();
       const forceRefresh = Boolean(parsedUrl.query.refresh);
       if (forceRefresh) {
         await nepseProvider.refreshLiveQuotes(true);
@@ -319,8 +320,11 @@ const requestHandler = async (req, res) => {
       }
 
       const state = getAppState();
+      const syncLatencyMs = Math.max(1, Date.now() - t0);
       return sendJson(res, 200, {
         ok: true,
+        syncLatencyMs,
+        syncedAt: new Date().toISOString(),
         market,
         sectors,
         signals,
@@ -398,7 +402,7 @@ const requestHandler = async (req, res) => {
         ok: true,
         symbol: sym,
         quote,
-        bars: adjBars.slice(-90),
+        bars: adjBars.slice(-200),
         analysis: enrichedSignal,
         signal: enrichedSignal,
         news: stockNews.items || []

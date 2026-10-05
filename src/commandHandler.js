@@ -201,6 +201,11 @@ async function handleMessage(rawText, senderId = "default") {
     return await getSmcAnalysisMessage(parts[1]);
   }
 
+  // 9c. NEPSE Sun–Thu Weekly Trading & PWH/PWL Swing Playbook (!weekly or !weekly NABIL)
+  if (["!weekly", "/weekly", "weekly", "!week", "/week", "week"].includes(cmd)) {
+    return await getWeeklyTradingMessage(parts[1]);
+  }
+
   // 10. AI Smart Portfolio Optimizer (!build 200000)
   if (["!build", "/build", "build", "!optimize", "!allocate"].includes(cmd)) {
     const cap = parts[1] ? parseFloat(parts[1].replace(/,/g, "")) : 200000;
@@ -2036,28 +2041,34 @@ async function getSmcAnalysisMessage(symbolArg) {
     const a = analyzeStock(q, bars);
     if (!a || !a.smc) return `❌ Insufficient bar history for *${q.symbol}*.`;
     const smc = a.smc;
+    const tp = smc.smcTradePlan || {};
     return (
       `🏦 *SMC (SMART MONEY CONCEPTS) BLUEPRINT — ${q.symbol}* (${q.companyName})\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
       `• *Current LTP:* NPR ${q.ltp} (${q.pointChange >= 0 ? "+" : ""}${q.percentageChange}%)\n` +
+      `• *SMC Score:* *${smc.smcScore}/100* (${smc.smcGrade})\n` +
       `• *SMC Institutional Verdict:* *${smc.smcVerdict}*\n\n` +
       `📐 *1. MARKET STRUCTURE (BOS / CHoCH)*\n` +
       `• *Structure State:* ${smc.structureType}\n` +
       `• *Detail:* ${smc.structureDesc}\n` +
       `• *Swing High (BSL):* NPR ${smc.lastSwingHigh?.price} | *Swing Low (SSL):* NPR ${smc.lastSwingLow?.price}\n\n` +
-      `🧱 *2. INSTITUTIONAL ORDER BLOCKS (OB)*\n` +
+      `🧱 *2. INSTITUTIONAL ORDER BLOCKS & BREAKER*\n` +
       `• *Bullish Demand OB (Buy Zone):* *${smc.bullishOB.zoneText}* (${smc.bullishOB.status})\n` +
-      `• *Bearish Supply OB (Sell Zone):* *${smc.bearishOB.zoneText}* (${smc.bearishOB.status})\n\n` +
-      `⚡ *3. FAIR VALUE GAP (FVG / IMBALANCE)*\n` +
+      `• *Bearish Supply OB (Sell Zone):* *${smc.bearishOB.zoneText}* (${smc.bearishOB.status})\n` +
+      (smc.breakerBlock ? `• *Breaker Block:* ${smc.breakerBlock.type} @ *${smc.breakerBlock.zoneText}*\n` : "") +
+      `\n⚡ *3. FAIR VALUE GAP (FVG / IMBALANCE)*\n` +
       `• *Imbalance Status:* ${smc.activeFVGText}\n\n` +
-      `💧 *4. LIQUIDITY POOLS & STOP-HUNTS (BSL / SSL)*\n` +
-      `• *Liquidity Radar:* ${smc.liquidityStatus}\n\n` +
+      `💧 *4. LIQUIDITY POOLS & PWH/PWL STOP-HUNTS*\n` +
+      `• *Liquidity Radar:* ${smc.liquidityStatus}\n` +
+      `• *Prev Week High (PWH):* NPR ${smc.pwh} | *Prev Week Low (PWL):* NPR ${smc.pwl}\n\n` +
       `⚖️ *5. DEALING RANGE (PREMIUM vs. DISCOUNT & OTE)*\n` +
       `• *Current Zone:* *${smc.dealingZone}*\n` +
       `• *50% Equilibrium (Fair Value):* NPR ${smc.equilibrium50}\n` +
       `• *Golden OTE Discount (61.8%–78.6% Fib):* NPR ${smc.oteLow} – NPR ${smc.oteHigh}\n\n` +
-      `🎯 *SMC EXECUTION PLAYBOOK:*\n` +
-      `${smc.smcPlaybook}`
+      `🎯 *EXACT SMC EXECUTION LADDER (R:R 1:${tp.riskReward}):*\n` +
+      `• *SMC Limit Entry:* *NPR ${tp.entryPrice}*\n` +
+      `• *Structural Stop-Loss:* *NPR ${tp.stopLoss}*\n` +
+      `• *Target 1 (Eq/PWH):* *NPR ${tp.target1}* | *Target 2 (BSL):* *NPR ${tp.target2}*`
     );
   }
 
@@ -2068,7 +2079,7 @@ async function getSmcAnalysisMessage(symbolArg) {
 
   const topSmcBuys = analyzed
     .filter((a) => a.smc.smcVerdict.includes("🟢") && a.quantScore >= 64)
-    .sort((a, b) => b.quantScore - a.quantScore)
+    .sort((a, b) => b.smc.smcScore - a.smc.smcScore || b.quantScore - a.quantScore)
     .slice(0, 8);
 
   let msg =
@@ -2078,11 +2089,65 @@ async function getSmcAnalysisMessage(symbolArg) {
 
   for (const a of topSmcBuys) {
     msg +=
-      `• *${a.symbol}* (NPR ${a.ltp}) — *${a.smc.structureTag}* | ${a.smc.dealingZone.split("(")[0].trim()}\n` +
-      `   Demand OB: *${a.smc.bullishOB.zoneText}* | OTE: Rs ${a.smc.oteLow}–${a.smc.oteHigh} | Supply OB: ${a.smc.bearishOB.zoneText}\n`;
+      `• *${a.symbol}* (NPR ${a.ltp}) — *SMC ${a.smc.smcScore}/100* | *${a.smc.structureTag}*\n` +
+      `   Demand OB: *${a.smc.bullishOB.zoneText}* | OTE: Rs ${a.smc.oteLow}–${a.smc.oteHigh} | T1: Rs ${a.smc.smcTradePlan.target1}\n`;
   }
 
-  msg += `\n💡 _Type *!smc NABIL* (or any symbol) for its full 5-part SMC Order Block, FVG & Liquidity blueprint._`;
+  msg += `\n💡 _Type *!smc NABIL* (or any symbol) for its full SMC Order Block, FVG & Liquidity blueprint._`;
+  return msg;
+}
+
+async function getWeeklyTradingMessage(symbolArg) {
+  if (symbolArg) {
+    const q = await nepseProvider.getQuote(symbolArg.toUpperCase());
+    if (!q) return `❌ Symbol *${symbolArg.toUpperCase()}* not found in NEPSE. Try *!weekly NABIL* or *!weekly*.`;
+    const bars = nepseProvider.getHistoricalBars(q.symbol);
+    const a = analyzeStock(q, bars);
+    if (!a || !a.weeklyTrading) return `❌ Insufficient bar history for *${q.symbol}*.`;
+    const wt = a.weeklyTrading;
+    return (
+      `📅 *NEPSE WEEKLY TRADING PLAYBOOK (SUN–THU) — ${q.symbol}*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `• *Current LTP:* NPR ${q.ltp} | *Weekly Score:* *${wt.weeklyScore}/100*\n` +
+      `• *Weekly Status:* *${wt.weeklyBadge}*\n` +
+      `• *This Week (5D):* ${wt.thisWeek.changePct >= 0 ? "+" : ""}${wt.thisWeek.changePct}% (Range: Rs ${wt.thisWeek.low} – Rs ${wt.thisWeek.high} | Vol: ${wt.thisWeek.volRatio}x Avg)\n` +
+      `• *Previous Week (PWL–PWH):* Low Rs ${wt.prevWeek.low} – High Rs ${wt.prevWeek.high} (Close Rs ${wt.prevWeek.close})\n\n` +
+      `🧭 *WEEKLY FLOOR PIVOTS & TREND*\n` +
+      `• *Weekly Pivot (P):* NPR ${wt.pivots.pivot} | *S1:* NPR ${wt.pivots.s1} | *R1:* NPR ${wt.pivots.r1} | *R2:* NPR ${wt.pivots.r2}\n` +
+      `• *4-Week EMA:* NPR ${wt.indicators.weeklyEMA4} | *10-Week EMA:* NPR ${wt.indicators.weeklyEMA10} | *Weekly RSI:* ${wt.indicators.weeklyRSI}\n\n` +
+      `🎯 *SUN–THU WEEKLY EXECUTION PLAN*\n` +
+      `• *1. Sun–Mon Entry Price:* *NPR ${wt.weeklyPlan.sunMonEntry}*\n` +
+      `• *2. Tue–Wed Dip Add (Pivot/S1):* *NPR ${wt.weeklyPlan.tueWedDipAdd}*\n` +
+      `• *3. Thursday Swing Target 1:* *NPR ${wt.weeklyPlan.thursdayTarget1}* | *Next Week Target 2:* *NPR ${wt.weeklyPlan.nextWeekTarget2}*\n` +
+      `• *4. Weekly Stop-Loss (< PWL):* *NPR ${wt.weeklyPlan.weeklyStopLoss}*\n\n` +
+      `⏰ *THURSDAY 2:45 PM WEEKEND RULE:*\n` +
+      `${wt.weeklyPlan.thursdayCloseRule}`
+    );
+  }
+
+  const quotes = await nepseProvider.getAllQuotes();
+  const analyzed = quotes
+    .map((q) => analyzeStock(q, nepseProvider.getHistoricalBars(q.symbol)))
+    .filter((a) => a && a.weeklyTrading);
+
+  const topWeekly = analyzed
+    .filter((a) => (a.weeklyTrading.isWeeklyBreakout || a.weeklyTrading.isWeeklySwingBuy) && a.quantScore >= 62)
+    .sort((a, b) => b.weeklyTrading.weeklyScore - a.weeklyTrading.weeklyScore || b.quantScore - a.quantScore)
+    .slice(0, 10);
+
+  let msg =
+    `📅 *NEPSE WEEKLY TRADING RADAR (SUN–THU SWING PICKS)*\n` +
+    `_Top Stocks Breaking Previous Week High (PWH) or Holding 4W/10W EMA Uptrend_\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+  for (const a of topWeekly) {
+    const wt = a.weeklyTrading;
+    msg +=
+      `• *${a.symbol}* (NPR ${a.ltp} | Wk: ${wt.thisWeek.changePct >= 0 ? "+" : ""}${wt.thisWeek.changePct}%) — *${wt.weeklyCategory}* (${wt.weeklyScore}/100)\n` +
+      `   Entry: *Rs ${wt.weeklyPlan.sunMonEntry}* | Thu T1: *Rs ${wt.weeklyPlan.thursdayTarget1}* | Stop < Rs ${wt.weeklyPlan.weeklyStopLoss}\n`;
+  }
+
+  msg += `\n💡 _Type *!weekly NABIL* (or any symbol) for its full Sun–Thu Weekly Pivot & Thursday 2:45 PM Weekend Hold rule._`;
   return msg;
 }
 
