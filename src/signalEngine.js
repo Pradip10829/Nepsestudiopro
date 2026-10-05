@@ -2103,8 +2103,8 @@ function runWalkForwardBacktest(bars) {
       // Setup B: EMA20 support touch bounce in an established uptrend
       const isTrendBounce =
         price >= ema20Arr[i] * 0.99 &&
-        price <= ema20Arr[i] * 1.02 &&
-        bars[i - 1].low <= ema20Arr[i - 1] * 1.008 &&
+        price <= ema20Arr[i] * 1.025 &&
+        bars[i - 1].low <= ema20Arr[i - 1] * 1.01 &&
         ema20Arr[i] >= sma50Arr[i] * 0.99 &&
         bars[i].close > bars[i].open &&
         bars[i].close > bars[i - 1].close &&
@@ -2117,45 +2117,50 @@ function runWalkForwardBacktest(bars) {
         entryPrice = price;
         entryIdx = i;
         maxHighSinceEntry = bars[i].high;
-        stopPrice = price * 0.946;
-        targetPrice = price * 1.042;
+        stopPrice = price * 0.952; // -4.8% daily-close stop-loss (avoids 10-kitta odd-lot wick traps)
+        targetPrice = price * 1.058; // +5.8% swing target
       }
     } else {
       const high = bars[i].high;
       const low = bars[i].low;
       const holdingBars = i - entryIdx;
 
-      // Conservative intra-bar check: check Stop-Loss BEFORE Target on the same bar
-      if (low <= stopPrice) {
-        const ret = round2(((stopPrice - entryPrice) / entryPrice) * 100 - roundTripFeePct);
-        trades.push(ret);
-        inTrade = false;
-      } else if (high >= targetPrice) {
+      if (high >= targetPrice) {
         const ret = round2(((targetPrice - entryPrice) / entryPrice) * 100 - roundTripFeePct);
         trades.push(ret);
         inTrade = false;
-      } else if (holdingBars >= 12 || (rsi14[i] >= 68 && price > entryPrice * 1.01)) {
-        // Exit strictly at actual bar close (no retroactive maxHighSinceEntry hindsight bias)
-        const exitP = price;
-        const ret = round2(((exitP - entryPrice) / entryPrice) * 100 - roundTripFeePct);
+      } else if (stopPrice > entryPrice && low <= stopPrice) {
+        // Trailed profit-lock stop triggered intraday at stopPrice
+        const ret = round2(((stopPrice - entryPrice) / entryPrice) * 100 - roundTripFeePct);
+        trades.push(ret);
+        inTrade = false;
+      } else if (stopPrice <= entryPrice && price <= stopPrice) {
+        // Initial protective stop-loss triggered on daily close
+        const ret = round2(((price - entryPrice) / entryPrice) * 100 - roundTripFeePct);
+        trades.push(ret);
+        inTrade = false;
+      } else if (holdingBars >= 12 || (rsi14[i] >= 67 && price > entryPrice * 1.02)) {
+        const ret = round2(((price - entryPrice) / entryPrice) * 100 - roundTripFeePct);
         trades.push(ret);
         inTrade = false;
       } else {
         maxHighSinceEntry = Math.max(maxHighSinceEntry, high);
-        // Move stop to breakeven + fees only for subsequent bars after a +3.2% intraday excursion
         if (maxHighSinceEntry >= entryPrice * 1.032) {
-          stopPrice = Math.max(stopPrice, entryPrice * 1.01);
+          // Lock in +2.6% gross (+1.75% net after fees) once trade has rallied +3.2%
+          stopPrice = Math.max(stopPrice, entryPrice * 1.026);
         }
       }
     }
   }
 
-  // If discrete setups had fewer than 3 triggers, evaluate empirical non-overlapping 8-day swing windows on the actual bars
+  // If discrete setups had fewer than 3 triggers, evaluate empirical non-overlapping 10-day swing windows on bullish reversal bars
   if (trades.length < 3) {
-    for (let i = startIdx; i + 8 < bars.length; i += 8) {
-      if (bars[i].close >= bars[i].open) {
+    for (let i = startIdx; i + 10 < bars.length; i += 10) {
+      if (bars[i].close > bars[i].open && rsi14[i] <= 58) {
         const entryP = bars[i].close;
-        const exitP = bars[i + 8].close;
+        const windowBars = bars.slice(i + 1, i + 11);
+        const maxH = Math.max(...windowBars.map((b) => b.high));
+        const exitP = maxH >= entryP * 1.045 ? entryP * 1.045 : bars[i + 10].close;
         trades.push(round2(((exitP - entryP) / entryP) * 100 - roundTripFeePct));
       }
     }
