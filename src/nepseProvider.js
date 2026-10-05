@@ -296,7 +296,7 @@ function generateHistoricalBars(symbol, basePrice, bias = "neutral", days = 220)
   }
 
   const bars = [];
-  const now = new Date("2026-10-02T15:00:00+05:45");
+  const now = new Date("2026-10-05T15:00:00+05:45");
   for (let idx = 0; idx < closes.length; idx++) {
     const d = new Date(now);
     d.setDate(d.getDate() - (closes.length - 1 - idx));
@@ -554,7 +554,7 @@ class NepseProvider {
       const bars = generateHistoricalBars("NEPSE", idxVal, "bullish", 220);
       this.history.set("NEPSE", bars);
     }
-    this.reanchorHistoryToLiveQuote("NEPSE", idxVal, prevClose, high, low, volume);
+    this.reanchorHistoryToLiveQuote("NEPSE", idxVal, prevClose, high, low, volume, openVal, turnover);
 
     this.quotes.set("NEPSE", {
       symbol: "NEPSE",
@@ -645,7 +645,7 @@ class NepseProvider {
    * Uses 100% REAL 200-day NEPSE OHLCV candles from NepaliPaisa/Chukul when cached,
    * or falls back to calibrated historical bars if real OHLCV hasn't been fetched yet.
    */
-  reanchorHistoryToLiveQuote(sym, ltp, prevClose, high, low, volume) {
+  reanchorHistoryToLiveQuote(sym, ltp, prevClose, high, low, volume, openPrice = 0, exactTurnover = 0) {
     const realEntry = sym !== "NEPSE" ? realDataEngine.getCached(sym) : null;
     if (realEntry && Array.isArray(realEntry.bars) && realEntry.bars.length >= 20) {
       const cloned = realEntry.bars.map((b) => ({ ...b }));
@@ -653,9 +653,9 @@ class NepseProvider {
       const lastBar = cloned[lastIdx];
       if (ltp > 0) {
         const { isOpen, nptDateStr } = this.isMarketOpenNow();
-        // If the market is closed or the last real bar is already from the latest trading session with the same close, preserve exact real OHLCV
+        // If the market is open and the last real bar is from an earlier session, append intraday bar
         if (isOpen && lastBar.date !== nptDateStr && Math.abs(lastBar.close - ltp) > 0.01) {
-          const safeOpen = prevClose > 0 ? prevClose : lastBar.close || ltp;
+          const safeOpen = openPrice > 0 ? openPrice : prevClose > 0 ? prevClose : lastBar.close || ltp;
           const safeHigh = round2(Math.max(high || ltp, low || ltp, ltp, safeOpen));
           const safeLow = round2(Math.min(low || ltp, high || ltp, ltp, safeOpen));
           cloned.push({
@@ -665,7 +665,7 @@ class NepseProvider {
             low: safeLow,
             close: ltp,
             volume: volume > 0 ? volume : lastBar.volume,
-            turnover: round2(ltp * (volume > 0 ? volume : lastBar.volume)),
+            turnover: exactTurnover > 0 ? round2(exactTurnover) : round2(ltp * (volume > 0 ? volume : lastBar.volume)),
             source: "LIVE_INTRADAY_BAR"
           });
         } else if (Math.abs(lastBar.close - ltp) > 0.01) {
@@ -676,7 +676,7 @@ class NepseProvider {
             low: round2(Math.min(lastBar.low || ltp, low || ltp, ltp)),
             close: ltp,
             volume: volume > 0 ? volume : lastBar.volume,
-            turnover: round2(ltp * (volume > 0 ? volume : lastBar.volume))
+            turnover: exactTurnover > 0 ? round2(exactTurnover) : round2(ltp * (volume > 0 ? volume : lastBar.volume))
           };
         }
       }
@@ -707,18 +707,21 @@ class NepseProvider {
       }
     }
 
-    const safeOpen = anchorPrev;
+    const qObj = this.quotes.get(sym);
+    const safeOpen = openPrice > 0 ? openPrice : qObj?.open > 0 ? qObj.open : anchorPrev;
     const safeHigh = round2(Math.max(high || ltp, low || ltp, ltp, safeOpen));
     const safeLow = round2(Math.min(low || ltp, high || ltp, ltp, safeOpen));
+    const safeTurn = exactTurnover > 0 ? round2(exactTurnover) : qObj?.turnover > 0 ? round2(qObj.turnover) : round2(ltp * (volume > 0 ? volume : bars[lastIdx].volume));
 
     bars[lastIdx] = {
       ...bars[lastIdx],
+      date: "2026-10-05",
       open: safeOpen,
       high: safeHigh,
       low: safeLow,
       close: ltp,
       volume: volume > 0 ? volume : bars[lastIdx].volume,
-      turnover: round2(ltp * (volume > 0 ? volume : bars[lastIdx].volume))
+      turnover: safeTurn
     };
   }
 
@@ -1083,8 +1086,8 @@ class NepseProvider {
         })
         .catch(() => {});
 
-      // 3. MeroLagani Live Market Quotes (only during open market hours so EOD signals stay locked)
-      const meroTask = cheerio && isOpen
+      // 3. MeroLagani Live Market Quotes
+      const meroTask = cheerio && (isOpen || force)
         ? fetchWithTimeout("https://merolagani.com/LatestMarket.aspx", 1800)
             .then(async (res) => {
               if (!res || !res.ok) return;
@@ -1133,7 +1136,7 @@ class NepseProvider {
                   if (sanitized) {
                     this.quotes.set(sym, sanitized);
                     if (priceChanged) {
-                      this.reanchorHistoryToLiveQuote(sym, sanitized.ltp, sanitized.prevClose, sanitized.high, sanitized.low, sanitized.volume);
+                      this.reanchorHistoryToLiveQuote(sym, sanitized.ltp, sanitized.prevClose, sanitized.high, sanitized.low, sanitized.volume, sanitized.open, sanitized.turnover);
                     }
                     updatedCount++;
                   }
@@ -1151,42 +1154,56 @@ class NepseProvider {
             .catch(() => {})
         : Promise.resolve();
 
-      // 4. ShareSansar Concurrent Fallback (only during open market hours so EOD signals stay locked)
-      const ssTask = cheerio && isOpen
-        ? fetchWithTimeout("https://www.sharesansar.com/today-share-price", 1800)
+      // 4. ShareSansar Official Today Share Price Stream (24-column #headFixed table)
+      const ssTask = cheerio && (isOpen || force)
+        ? fetchWithTimeout("https://www.sharesansar.com/today-share-price", 2200)
             .then(async (res) => {
               if (!res || !res.ok || meroUpdated > 10) return;
               const html = await res.text();
               if (meroUpdated > 10) return;
               const $ = cheerio.load(html);
+              const num = (s) => parseFloat(String(s || "").replace(/,/g, "")) || 0;
               let count = 0;
-              $("table tbody tr").each((_, row) => {
+              $("#headFixed tbody tr, table tbody tr").each((_, row) => {
                 const tds = $(row).find("td");
-                if (tds.length < 8) return;
+                if (tds.length < 18) return;
                 const sym = $(tds[1]).text().trim().toUpperCase();
-                const high = parseFloat($(tds[3]).text().replace(/,/g, "")) || 0;
-                const low = parseFloat($(tds[4]).text().replace(/,/g, "")) || 0;
-                const ltp = parseFloat($(tds[6]).text().replace(/,/g, ""));
-                const ptChange = parseFloat($(tds[7]).text().replace(/,/g, "")) || 0;
-                const volume = parseFloat($(tds[8])?.text()?.replace(/,/g, "")) || 0;
-                if (sym && !isNaN(ltp) && ltp > 0 && this.quotes.has(sym)) {
-                  const ex = this.quotes.get(sym);
+                const open = num($(tds[3]).text());
+                const high = num($(tds[4]).text());
+                const low = num($(tds[5]).text());
+                const close = num($(tds[6]).text());
+                const ltp = num($(tds[7]).text()) || close;
+                const volume = Math.round(num($(tds[11]).text()));
+                const prevClose = num($(tds[12]).text()) || open || ltp;
+                const turnover = num($(tds[13]).text());
+                const avg120d = tds.length > 20 ? num($(tds[20]).text()) : 0;
+                const avg180d = tds.length > 21 ? num($(tds[21]).text()) : 0;
+                const high52w = tds.length > 22 ? num($(tds[22]).text()) : 0;
+                const low52w = tds.length > 23 ? num($(tds[23]).text()) : 0;
+                if (sym && !isNaN(ltp) && ltp > 0) {
+                  const ex = this.quotes.get(sym) || {};
                   const priceChanged = ex.ltp !== ltp || ex.volume !== volume;
-                  const prevClose = round2(ltp - ptChange);
                   const sanitized = this.sanitizeAndEnrichQuote({
                     ...ex,
+                    symbol: sym,
+                    open: open || prevClose || ltp,
                     ltp,
                     high: high || ltp,
                     low: low || ltp,
                     prevClose,
                     volume: volume || ex.volume,
+                    turnover: turnover > 0 ? turnover : round2((volume || ex.volume || 0) * ltp),
+                    avg120d: avg120d > 0 ? avg120d : ex.avg120d,
+                    avg180d: avg180d > 0 ? avg180d : ex.avg180d,
+                    high52w: high52w > 0 ? high52w : ex.high52w,
+                    low52w: low52w > 0 ? low52w : ex.low52w,
                     source: "SHARESANSAR_LIVE",
                     updatedAt: new Date().toISOString()
                   });
                   if (sanitized) {
                     this.quotes.set(sym, sanitized);
                     if (priceChanged) {
-                      this.reanchorHistoryToLiveQuote(sym, sanitized.ltp, sanitized.prevClose, sanitized.high, sanitized.low, sanitized.volume);
+                      this.reanchorHistoryToLiveQuote(sym, sanitized.ltp, sanitized.prevClose, sanitized.high, sanitized.low, sanitized.volume, sanitized.open, sanitized.turnover);
                     }
                     count++;
                   }
@@ -1268,7 +1285,11 @@ class NepseProvider {
       floatIndex: this.marketIndex.floatIndex,
       floatChange: this.marketIndex.floatChange,
       floatPctChange: this.marketIndex.floatPctChange,
-      merolaganiIndexUrl: "https://www.merolagani.com/CompanyDetail.aspx?symbol=nepse",
+      senFloatIndex: this.marketIndex.senFloatIndex,
+      senFloatChange: this.marketIndex.senFloatChange,
+      senFloatPctChange: this.marketIndex.senFloatPctChange,
+      merolaganiIndexUrl: "https://merolagani.com/LatestMarket.aspx",
+      sharesansarUrl: "https://www.sharesansar.com/today-share-price",
       totalTurnover,
       turnoverArba,
       totalVolume,
@@ -1293,7 +1314,7 @@ class NepseProvider {
       sectorChangePct: secInfo ? secInfo.percentageChange : 0,
       sectorIndexVal: secInfo ? secInfo.indexVal : 0,
       nepseChangePct: Number(this.marketIndex.percentageChange) || 0,
-      nepseIndexVal: Number(this.marketIndex.nepseIndex) || 2587.25,
+      nepseIndexVal: Number(this.marketIndex.nepseIndex) || 2566.76,
       marketBreadthPct: regimeObj.breadthPct
     };
   }
@@ -1365,10 +1386,10 @@ class NepseProvider {
           indexVal: round2(subVal),
           change: round2(Number(matchedSub.pointChange ?? matchedSub.change ?? 0)),
           percentageChange: round2(Number(matchedSub.change ?? matchedSub.pctChange ?? 0)),
-          advances,
-          declines,
+          advances: matchedSub.gainers ?? advances,
+          declines: matchedSub.losers ?? declines,
           totalScripts: members.length,
-          totalTurnover
+          totalTurnover: matchedSub.turnover > 0 ? round2(matchedSub.turnover) : totalTurnover
         };
       }
 

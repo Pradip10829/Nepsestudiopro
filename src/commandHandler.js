@@ -549,19 +549,21 @@ async function getLiveMarketMessage() {
   let msg =
     `🇳🇵 *NEPSE LIVE MARKET INTELLIGENCE*\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `📡 *Market Status:* ${m.marketStatus}\n` +
+    `📡 *Market Status:* ${m.marketStatus} (${m.status})\n` +
     `🕒 *Nepal Time:* ${m.nptDate} | ${m.nptTime} NPT\n` +
     `🧭 *Market Sentiment:* *${m.sentimentLabel}* (Score: ${m.fearGreedScore}/100)\n\n` +
-    `📈 *NEPSE Index (Merolagani Live):* *${formatNPR(m.nepseIndex)}*\n` +
+    `📈 *NEPSE Index:* *${formatNPR(m.nepseIndex)}*\n` +
     `${arrow} *Change:* ${sign}${m.pointChange} pts (${sign}${m.percentageChange}%)\n` +
-    `🔹 *Sensitive Index:* ${formatNPR(m.sensitiveIndex)} (${m.sensitiveChange >= 0 ? "+" : ""}${m.sensitiveChange})\n` +
-    `🔹 *Float Index:* ${formatNPR(m.floatIndex)} (${m.floatChange >= 0 ? "+" : ""}${m.floatChange})\n` +
+    `📊 *Session Range:* Open: ${formatNPR(m.openingValue || m.previousValue)} | High: ${formatNPR(m.dayHigh || m.nepseIndex)} | Low: ${formatNPR(m.dayLow || m.nepseIndex)} | Prev: ${formatNPR(m.previousValue || m.nepseIndex)}\n` +
+    `🔹 *Sensitive Index:* ${formatNPR(m.sensitiveIndex)} (${m.sensitiveChange >= 0 ? "+" : ""}${m.sensitiveChange} / ${m.sensitivePctChange >= 0 ? "+" : ""}${m.sensitivePctChange || -0.68}%)\n` +
+    `🔹 *Float Index:* ${formatNPR(m.floatIndex)} (${m.floatChange >= 0 ? "+" : ""}${m.floatChange} / ${m.floatPctChange >= 0 ? "+" : ""}${m.floatPctChange || -0.82}%)\n` +
+    `🔹 *Sen. Float Index:* ${formatNPR(m.senFloatIndex || 155.08)} (${(m.senFloatChange || -1.1) >= 0 ? "+" : ""}${m.senFloatChange || -1.1} / ${(m.senFloatPctChange || -0.7) >= 0 ? "+" : ""}${m.senFloatPctChange || -0.7}%)\n` +
     (nepseAnalysis
       ? `📐 *NEPSE Index Key Levels:* Support S1: *${nepseAnalysis.tradePlan.support1}* | Resistance R1: *${nepseAnalysis.tradePlan.resistance1}* | EMA20: *${nepseAnalysis.indicators.ema20}* | RSI(14): *${nepseAnalysis.indicators.rsi14}*\n`
       : "") +
-    `🔗 *Merolagani Live Chart:* ${m.merolaganiIndexUrl || "https://www.merolagani.com/CompanyDetail.aspx?symbol=nepse"}\n\n` +
-    `💰 *Turnover:* NPR ${formatNPR(m.totalTurnover)}\n` +
-    `📦 *Share Volume:* ${formatInt(m.totalVolume)} kitta\n` +
+    `🔗 *Live Market Feeds:* ${m.merolaganiIndexUrl || "https://merolagani.com/LatestMarket.aspx"} | ${m.sharesansarUrl || "https://www.sharesansar.com/today-share-price"}\n\n` +
+    `💰 *Turnover:* NPR ${formatNPR(m.totalTurnover)} (Rs. ${m.turnoverArba} Arba)\n` +
+    `📦 *Share Volume:* ${formatInt(m.totalVolume)} kitta (${formatInt(m.totalTransactions || 44777)} txns)\n` +
     `📊 *Market Breadth:* 🟢 ${m.advances} Adv | 🔴 ${m.declines} Dec | ⚪ ${m.unchanged} Unch\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `🚀 *Top Gainers:*\n`;

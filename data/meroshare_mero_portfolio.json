@@ -12,9 +12,9 @@
     "autoSyncEnabled": true,
     "syncIntervalMinutes": 1,
     "linkedAt": "2026-10-04T04:40:36.376Z",
-    "lastSyncedAt": "2026-10-04T06:17:22.235Z",
+    "lastSyncedAt": "2026-10-05T15:00:00.000Z",
     "syncStatus": "LIVE_CDSC_AUTHENTICATED",
-    "cdscTotalValueLtp": 730157.9,
+    "cdscTotalValueLtp": 724463.7,
     "cdscTotalValuePrevClose": 730157.9,
     "cdscTotalItems": 22,
     "waccMatchedCount": 22,
@@ -366,7 +366,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "AKJCL",
-      "scriptDesc": "ANKHU KHOLA JALVIDHYUT COMPANY LIMITED - ORDIANRY SHARE"
+      "scriptDesc": "ANKHU KHOLA JALVIDHYUT COMPANY LIMITED - ORDIANRY SHARE",
+      "previousClosingPrice": 356,
+      "lastTransactionPrice": 350.6,
+      "valueAsOfPreviousClosingPrice": 7120,
+      "valueAsOfLastTransactionPrice": 7012
     },
     {
       "currentBalance": 236,
@@ -378,7 +382,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "ALICL",
-      "scriptDesc": "ASIAN LIFE INSURANCE COMPANY LIMITED - ORDINARY SHARE"
+      "scriptDesc": "ASIAN LIFE INSURANCE COMPANY LIMITED - ORDINARY SHARE",
+      "previousClosingPrice": 422.9,
+      "lastTransactionPrice": 422,
+      "valueAsOfPreviousClosingPrice": 99804.4,
+      "valueAsOfLastTransactionPrice": 99592
     },
     {
       "currentBalance": 200,
@@ -390,7 +398,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "BGWT",
-      "scriptDesc": "BHAGAWATI HYDROPOWER DEVELOPMENT CO. LTD. - ORDINARY SHARE"
+      "scriptDesc": "BHAGAWATI HYDROPOWER DEVELOPMENT CO. LTD. - ORDINARY SHARE",
+      "previousClosingPrice": 471,
+      "lastTransactionPrice": 465.3,
+      "valueAsOfPreviousClosingPrice": 94200,
+      "valueAsOfLastTransactionPrice": 93060
     },
     {
       "currentBalance": 100,
@@ -402,7 +414,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "CSY",
-      "scriptDesc": "CITIZENS SANTULIT YOJANA (CLOSE-ENDED MUTUAL FUND)"
+      "scriptDesc": "CITIZENS SANTULIT YOJANA (CLOSE-ENDED MUTUAL FUND)",
+      "previousClosingPrice": 8.52,
+      "lastTransactionPrice": 8.6,
+      "valueAsOfPreviousClosingPrice": 852,
+      "valueAsOfLastTransactionPrice": 860
     },
     {
       "currentBalance": 208,
@@ -414,7 +430,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "HBL",
-      "scriptDesc": "HIMALAYAN BANK LIMITED - ORDINARY SHARE"
+      "scriptDesc": "HIMALAYAN BANK LIMITED - ORDINARY SHARE",
+      "previousClosingPrice": 191.3,
+      "lastTransactionPrice": 191.2,
+      "valueAsOfPreviousClosingPrice": 39790.4,
+      "valueAsOfLastTransactionPrice": 39769.6
     },
     {
       "currentBalance": 30,
@@ -426,7 +446,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "HDL",
-      "scriptDesc": "HIMALAYAN DISTILLERY LIMITED - ORDINARY SHARE"
+      "scriptDesc": "HIMALAYAN DISTILLERY LIMITED - ORDINARY SHARE",
+      "previousClosingPrice": 1293,
+      "lastTransactionPrice": 1282,
+      "valueAsOfPreviousClosingPrice": 38790,
+      "valueAsOfLastTransactionPrice": 38460
     },
     {
       "currentBalance": 101,
@@ -438,7 +462,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "HIDCL",
-      "scriptDesc": "HYDROELECTRICITY INVESTMENT AND DEVELOPMENT COMPANY LIMITED - ORDINARY SHARE"
+      "scriptDesc": "HYDROELECTRICITY INVESTMENT AND DEVELOPMENT COMPANY LIMITED - ORDINARY SHARE",
+      "previousClosingPrice": 249.5,
+      "lastTransactionPrice": 246.9,
+      "valueAsOfPreviousClosingPrice": 25199.5,
+      "valueAsOfLastTransactionPrice": 24936.9
     },
     {
       "currentBalance": 684,
@@ -450,7 +478,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "KBL",
-      "scriptDesc": "KUMARI BANK LIMITED - ORDINARY SHARE"
+      "scriptDesc": "KUMARI BANK LIMITED - ORDINARY SHARE",
+      "previousClosingPrice": 225.5,
+      "lastTransactionPrice": 222.8,
+      "valueAsOfPreviousClosingPrice": 154242,
+      "valueAsOfLastTransactionPrice": 152395.2
     },
     {
       "currentBalance": 100,
@@ -462,7 +494,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "KEF",
-      "scriptDesc": "KUMARI EQUITY FUND"
+      "scriptDesc": "KUMARI EQUITY FUND",
+      "previousClosingPrice": 9.25,
+      "lastTransactionPrice": 9.28,
+      "valueAsOfPreviousClosingPrice": 925,
+      "valueAsOfLastTransactionPrice": 928
     },
     {
       "currentBalance": 26,
@@ -474,7 +510,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "MLBL",
-      "scriptDesc": "MAHALAXMI BIKAS  BANK LIMITED - ORDINARY SHARE"
+      "scriptDesc": "MAHALAXMI BIKAS  BANK LIMITED - ORDINARY SHARE",
+      "previousClosingPrice": 354,
+      "lastTransactionPrice": 350.1,
+      "valueAsOfPreviousClosingPrice": 9204,
+      "valueAsOfLastTransactionPrice": 9102.6
     },
     {
       "currentBalance": 100,
@@ -486,7 +526,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "NBF3",
-      "scriptDesc": "NABIL BALANCE FUND-3"
+      "scriptDesc": "NABIL BALANCE FUND-3",
+      "previousClosingPrice": 9.1,
+      "lastTransactionPrice": 8.94,
+      "valueAsOfPreviousClosingPrice": 910,
+      "valueAsOfLastTransactionPrice": 894
     },
     {
       "currentBalance": 144,
@@ -498,7 +542,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "NIFRA",
-      "scriptDesc": "NEPAL INFRASTRUCTURE BANK LIMITED - ORDINARY SHARE"
+      "scriptDesc": "NEPAL INFRASTRUCTURE BANK LIMITED - ORDINARY SHARE",
+      "previousClosingPrice": 244.5,
+      "lastTransactionPrice": 241.5,
+      "valueAsOfPreviousClosingPrice": 35208,
+      "valueAsOfLastTransactionPrice": 34776
     },
     {
       "currentBalance": 200,
@@ -510,7 +558,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "NIMB",
-      "scriptDesc": "NEPAL INVESTMENT MEGA BANK LIMITED - ORDINARY SHARE"
+      "scriptDesc": "NEPAL INVESTMENT MEGA BANK LIMITED - ORDINARY SHARE",
+      "previousClosingPrice": 191.8,
+      "lastTransactionPrice": 190,
+      "valueAsOfPreviousClosingPrice": 38360,
+      "valueAsOfLastTransactionPrice": 38000
     },
     {
       "currentBalance": 658,
@@ -522,7 +574,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "NMB",
-      "scriptDesc": "NMB BANK LIMITED-ORDINARY SHARE"
+      "scriptDesc": "NMB BANK LIMITED-ORDINARY SHARE",
+      "previousClosingPrice": 253,
+      "lastTransactionPrice": 251.8,
+      "valueAsOfPreviousClosingPrice": 166474,
+      "valueAsOfLastTransactionPrice": 165684.4
     },
     {
       "currentBalance": 10,
@@ -534,7 +590,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "NMLBBL",
-      "scriptDesc": "NERUDE MIRMIRE LAGHUBITA BITTIYA SANSTHA LIMITED - ORDINARY SHARE"
+      "scriptDesc": "NERUDE MIRMIRE LAGHUBITA BITTIYA SANSTHA LIMITED - ORDINARY SHARE",
+      "previousClosingPrice": 497.2,
+      "lastTransactionPrice": 492.1,
+      "valueAsOfPreviousClosingPrice": 4972,
+      "valueAsOfLastTransactionPrice": 4921
     },
     {
       "currentBalance": 100,
@@ -546,7 +606,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "NSIF2",
-      "scriptDesc": "NMB SULAV INVESTMENT FUND- 2 (MUTUAL FUND)"
+      "scriptDesc": "NMB SULAV INVESTMENT FUND- 2 (MUTUAL FUND)",
+      "previousClosingPrice": 9.9,
+      "lastTransactionPrice": 9.8,
+      "valueAsOfPreviousClosingPrice": 990,
+      "valueAsOfLastTransactionPrice": 980
     },
     {
       "currentBalance": 100,
@@ -558,7 +622,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "NSY",
-      "scriptDesc": "NEPAL LIFE SAMRIDDHI LAGANI YOJANA (CLOSE ENDED MUTUAL FUND)"
+      "scriptDesc": "NEPAL LIFE SAMRIDDHI LAGANI YOJANA (CLOSE ENDED MUTUAL FUND)",
+      "previousClosingPrice": 8.85,
+      "lastTransactionPrice": 8.86,
+      "valueAsOfPreviousClosingPrice": 885,
+      "valueAsOfLastTransactionPrice": 886
     },
     {
       "currentBalance": 20,
@@ -570,7 +638,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "PPCL",
-      "scriptDesc": "PANCHTHAR POWER COMPANY LIMITED - ORDIANRY SHARE"
+      "scriptDesc": "PANCHTHAR POWER COMPANY LIMITED - ORDIANRY SHARE",
+      "previousClosingPrice": 335,
+      "lastTransactionPrice": 332,
+      "valueAsOfPreviousClosingPrice": 6700,
+      "valueAsOfLastTransactionPrice": 6640
     },
     {
       "currentBalance": 100,
@@ -582,7 +654,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "RSY2",
-      "scriptDesc": "RELIABLE SAMRIDDHI YOJANA -2 - CLOSED ENDED MUTUAL FUND"
+      "scriptDesc": "RELIABLE SAMRIDDHI YOJANA -2 - CLOSED ENDED MUTUAL FUND",
+      "previousClosingPrice": 8.84,
+      "lastTransactionPrice": 8.99,
+      "valueAsOfPreviousClosingPrice": 884,
+      "valueAsOfLastTransactionPrice": 899
     },
     {
       "currentBalance": 100,
@@ -594,7 +670,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "SBCF",
-      "scriptDesc": "SUNRISE BLUECHIP FUND- MUTUAL FUND"
+      "scriptDesc": "SUNRISE BLUECHIP FUND- MUTUAL FUND",
+      "previousClosingPrice": 9.2,
+      "lastTransactionPrice": 9.23,
+      "valueAsOfPreviousClosingPrice": 920,
+      "valueAsOfLastTransactionPrice": 923
     },
     {
       "currentBalance": 4,
@@ -606,7 +686,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "SHINE",
-      "scriptDesc": "SHINE RESUNGA DEVELOPMENT BANK LIMITED - ORDINARY SHARE"
+      "scriptDesc": "SHINE RESUNGA DEVELOPMENT BANK LIMITED - ORDINARY SHARE",
+      "previousClosingPrice": 393.9,
+      "lastTransactionPrice": 398,
+      "valueAsOfPreviousClosingPrice": 1575.6,
+      "valueAsOfLastTransactionPrice": 1592
     },
     {
       "currentBalance": 200,
@@ -618,7 +702,11 @@
       "pledgeBalance": 0,
       "remarks": " ",
       "script": "SSIS",
-      "scriptDesc": "SIDDHARTHA SYSTEMATIC INVESTMENT SCHEME"
+      "scriptDesc": "SIDDHARTHA SYSTEMATIC INVESTMENT SCHEME",
+      "previousClosingPrice": 10.76,
+      "lastTransactionPrice": 10.76,
+      "valueAsOfPreviousClosingPrice": 2152,
+      "valueAsOfLastTransactionPrice": 2152
     }
   ],
   "recentTransactions": [
@@ -964,13 +1052,15 @@
       "purchaseLots": [],
       "userLtQty": 20,
       "userStQty": 0,
-      "cdscLtp": 356,
+      "cdscLtp": 350.6,
       "cdscPrevClose": 356,
       "cdscValueLtp": 7120,
       "cdscValuePrevClose": 7120,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 7120,
+      "currentValue": 7012
     },
     "ALICL": {
       "symbol": "ALICL",
@@ -992,13 +1082,15 @@
       "purchaseLots": [],
       "userLtQty": 236,
       "userStQty": 0,
-      "cdscLtp": 422.9,
+      "cdscLtp": 422,
       "cdscPrevClose": 422.9,
       "cdscValueLtp": 99804.4,
       "cdscValuePrevClose": 99804.4,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 99804.4,
+      "currentValue": 99592
     },
     "BGWT": {
       "symbol": "BGWT",
@@ -1020,13 +1112,15 @@
       "purchaseLots": [],
       "userLtQty": 200,
       "userStQty": 0,
-      "cdscLtp": 471,
+      "cdscLtp": 465.3,
       "cdscPrevClose": 471,
       "cdscValueLtp": 94200,
       "cdscValuePrevClose": 94200,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 94200,
+      "currentValue": 93060
     },
     "CSY": {
       "symbol": "CSY",
@@ -1048,13 +1142,15 @@
       "purchaseLots": [],
       "userLtQty": 100,
       "userStQty": 0,
-      "cdscLtp": 8.52,
+      "cdscLtp": 8.6,
       "cdscPrevClose": 8.52,
       "cdscValueLtp": 852,
       "cdscValuePrevClose": 852,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 852,
+      "currentValue": 860
     },
     "HBL": {
       "symbol": "HBL",
@@ -1076,13 +1172,15 @@
       "purchaseLots": [],
       "userLtQty": 208,
       "userStQty": 0,
-      "cdscLtp": 191.3,
+      "cdscLtp": 191.2,
       "cdscPrevClose": 191.3,
       "cdscValueLtp": 39790.4,
       "cdscValuePrevClose": 39790.4,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 39790.4,
+      "currentValue": 39769.6
     },
     "HDL": {
       "symbol": "HDL",
@@ -1104,13 +1202,15 @@
       "purchaseLots": [],
       "userLtQty": 30,
       "userStQty": 0,
-      "cdscLtp": 1293,
+      "cdscLtp": 1282,
       "cdscPrevClose": 1293,
       "cdscValueLtp": 38790,
       "cdscValuePrevClose": 38790,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 38790,
+      "currentValue": 38460
     },
     "HIDCL": {
       "symbol": "HIDCL",
@@ -1132,13 +1232,15 @@
       "purchaseLots": [],
       "userLtQty": 101,
       "userStQty": 0,
-      "cdscLtp": 249.5,
+      "cdscLtp": 246.9,
       "cdscPrevClose": 249.5,
       "cdscValueLtp": 25199.5,
       "cdscValuePrevClose": 25199.5,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 25199.5,
+      "currentValue": 24936.9
     },
     "KBL": {
       "symbol": "KBL",
@@ -1160,13 +1262,15 @@
       "purchaseLots": [],
       "userLtQty": 684,
       "userStQty": 0,
-      "cdscLtp": 225.5,
+      "cdscLtp": 222.8,
       "cdscPrevClose": 225.5,
       "cdscValueLtp": 154242,
       "cdscValuePrevClose": 154242,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 154242,
+      "currentValue": 152395.2
     },
     "KEF": {
       "symbol": "KEF",
@@ -1188,13 +1292,15 @@
       "purchaseLots": [],
       "userLtQty": 100,
       "userStQty": 0,
-      "cdscLtp": 9.25,
+      "cdscLtp": 9.28,
       "cdscPrevClose": 9.25,
       "cdscValueLtp": 925,
       "cdscValuePrevClose": 925,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 925,
+      "currentValue": 928
     },
     "MLBL": {
       "symbol": "MLBL",
@@ -1216,13 +1322,15 @@
       "purchaseLots": [],
       "userLtQty": 26,
       "userStQty": 0,
-      "cdscLtp": 354,
+      "cdscLtp": 350.1,
       "cdscPrevClose": 354,
       "cdscValueLtp": 9204,
       "cdscValuePrevClose": 9204,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 9204,
+      "currentValue": 9102.6
     },
     "NBF3": {
       "symbol": "NBF3",
@@ -1244,13 +1352,15 @@
       "purchaseLots": [],
       "userLtQty": 100,
       "userStQty": 0,
-      "cdscLtp": 9.1,
+      "cdscLtp": 8.94,
       "cdscPrevClose": 9.1,
       "cdscValueLtp": 910,
       "cdscValuePrevClose": 910,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 910,
+      "currentValue": 894
     },
     "NIFRA": {
       "symbol": "NIFRA",
@@ -1272,13 +1382,15 @@
       "purchaseLots": [],
       "userLtQty": 144,
       "userStQty": 0,
-      "cdscLtp": 244.5,
+      "cdscLtp": 241.5,
       "cdscPrevClose": 244.5,
       "cdscValueLtp": 35208,
       "cdscValuePrevClose": 35208,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 35208,
+      "currentValue": 34776
     },
     "NIMB": {
       "symbol": "NIMB",
@@ -1300,13 +1412,15 @@
       "purchaseLots": [],
       "userLtQty": 200,
       "userStQty": 0,
-      "cdscLtp": 191.8,
+      "cdscLtp": 190,
       "cdscPrevClose": 191.8,
       "cdscValueLtp": 38360,
       "cdscValuePrevClose": 38360,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 38360,
+      "currentValue": 38000
     },
     "NMB": {
       "symbol": "NMB",
@@ -1328,13 +1442,15 @@
       "purchaseLots": [],
       "userLtQty": 658,
       "userStQty": 0,
-      "cdscLtp": 253,
+      "cdscLtp": 251.8,
       "cdscPrevClose": 253,
       "cdscValueLtp": 166474,
       "cdscValuePrevClose": 166474,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 166474,
+      "currentValue": 165684.4
     },
     "NMLBBL": {
       "symbol": "NMLBBL",
@@ -1356,13 +1472,15 @@
       "purchaseLots": [],
       "userLtQty": 10,
       "userStQty": 0,
-      "cdscLtp": 497.2,
+      "cdscLtp": 492.1,
       "cdscPrevClose": 497.2,
       "cdscValueLtp": 4972,
       "cdscValuePrevClose": 4972,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 4972,
+      "currentValue": 4921
     },
     "NSIF2": {
       "symbol": "NSIF2",
@@ -1384,13 +1502,15 @@
       "purchaseLots": [],
       "userLtQty": 100,
       "userStQty": 0,
-      "cdscLtp": 9.9,
+      "cdscLtp": 9.8,
       "cdscPrevClose": 9.9,
       "cdscValueLtp": 990,
       "cdscValuePrevClose": 990,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 990,
+      "currentValue": 980
     },
     "NSY": {
       "symbol": "NSY",
@@ -1412,13 +1532,15 @@
       "purchaseLots": [],
       "userLtQty": 100,
       "userStQty": 0,
-      "cdscLtp": 8.85,
+      "cdscLtp": 8.86,
       "cdscPrevClose": 8.85,
       "cdscValueLtp": 885,
       "cdscValuePrevClose": 885,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 885,
+      "currentValue": 886
     },
     "PPCL": {
       "symbol": "PPCL",
@@ -1440,13 +1562,15 @@
       "purchaseLots": [],
       "userLtQty": 20,
       "userStQty": 0,
-      "cdscLtp": 335,
+      "cdscLtp": 332,
       "cdscPrevClose": 335,
       "cdscValueLtp": 6700,
       "cdscValuePrevClose": 6700,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 6700,
+      "currentValue": 6640
     },
     "RSY2": {
       "symbol": "RSY2",
@@ -1468,13 +1592,15 @@
       "purchaseLots": [],
       "userLtQty": 100,
       "userStQty": 0,
-      "cdscLtp": 8.84,
+      "cdscLtp": 8.99,
       "cdscPrevClose": 8.84,
       "cdscValueLtp": 884,
       "cdscValuePrevClose": 884,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 884,
+      "currentValue": 899
     },
     "SBCF": {
       "symbol": "SBCF",
@@ -1496,13 +1622,15 @@
       "purchaseLots": [],
       "userLtQty": 100,
       "userStQty": 0,
-      "cdscLtp": 9.2,
+      "cdscLtp": 9.23,
       "cdscPrevClose": 9.2,
       "cdscValueLtp": 920,
       "cdscValuePrevClose": 920,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 920,
+      "currentValue": 923
     },
     "SHINE": {
       "symbol": "SHINE",
@@ -1524,13 +1652,15 @@
       "purchaseLots": [],
       "userLtQty": 4,
       "userStQty": 0,
-      "cdscLtp": 393.9,
+      "cdscLtp": 398,
       "cdscPrevClose": 393.9,
       "cdscValueLtp": 1575.6,
       "cdscValuePrevClose": 1575.6,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 1575.6,
+      "currentValue": 1592
     },
     "SSIS": {
       "symbol": "SSIS",
@@ -1558,7 +1688,12 @@
       "cdscValuePrevClose": 2152,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z"
+      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "prevCloseValue": 2152,
+      "currentValue": 2152
     }
-  }
+  },
+  "exportedAt": "05/10/2026 15:00:00",
+  "totalValueAsOfPreviousClosingPrice": 730157.9,
+  "totalValueAsOfLastTransactionPrice": 724463.7
 }

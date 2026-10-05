@@ -1761,7 +1761,7 @@
 
     <!-- Right Market Telemetry & Actions -->
     <div class="yt-masthead-right">
-      <div class="metric-pill" id="nepseIndexPill">
+      <div class="metric-pill" id="nepseIndexPill" onclick="selectStock('NEPSE', true)" style="cursor:pointer;" title="Click to view interactive NEPSE Index Chart (2,566.76)">
         <span class="live-dot"></span>
         <span class="lbl">NEPSE</span>
         <span class="val" id="idxValue">2,566.76</span>
@@ -3987,7 +3987,16 @@
 
     async function selectStock(symbol, scrollToTop = false, skipChartFetch = false) {
       selectedSymbol = symbol;
-      const s = allSignals.find(item => item.symbol === symbol);
+      let s = allSignals.find(item => item.symbol === symbol);
+      if (!s && symbol === 'NEPSE') {
+        try {
+          const r = await fetch('/api/chart/NEPSE');
+          const d = await r.json();
+          if (d && d.ok && d.signal) {
+            s = d.signal;
+          }
+        } catch (_) {}
+      }
       if (!s) return;
 
       document.querySelectorAll('#screenerTableBody tr').forEach(tr => {
@@ -4026,7 +4035,9 @@
       const ringWrap = document.getElementById('selScoreRingWrap');
       if (ringWrap) ringWrap.innerHTML = buildScoreRingSvg(s.quantScore);
 
-      document.getElementById('selMeroLink').href = `https://www.merolagani.com/CompanyDetail.aspx?symbol=${encodeURIComponent(s.symbol)}`;
+      document.getElementById('selMeroLink').href = s.symbol === 'NEPSE'
+        ? 'https://merolagani.com/LatestMarket.aspx'
+        : `https://www.merolagani.com/CompanyDetail.aspx?symbol=${encodeURIComponent(s.symbol)}`;
       const srcBadgeEl = document.getElementById('selSourceBadge');
       if (s.realOHLCVVerified && s.realFundamentalsVerified) {
         srcBadgeEl.textContent = `✔ VERIFIED: ${s.realBarsCount || 200}D NEPSE OHLCV • MeroLagani Fundamentals${s.realFloorsheetVerified ? ' • Live Floorsheet' : ''}`;
