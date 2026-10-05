@@ -1764,23 +1764,23 @@
       <div class="metric-pill" id="nepseIndexPill">
         <span class="live-dot"></span>
         <span class="lbl">NEPSE</span>
-        <span class="val" id="idxValue">2,587.25</span>
-        <span class="badge badge-red" id="idxChange">-11.90 (-0.45%)</span>
+        <span class="val" id="idxValue">2,566.76</span>
+        <span class="badge badge-red" id="idxChange">-20.48 (-0.79%)</span>
       </div>
       <div class="metric-pill" style="display:none;" id="sensPillWrap">
         <span class="lbl">Sens</span>
-        <span class="val" id="sensValue">463.02</span>
-        <span class="badge badge-red" id="sensChange">-1.74 (-0.37%)</span>
+        <span class="val" id="sensValue">459.85</span>
+        <span class="badge badge-red" id="sensChange">-3.17 (-0.68%)</span>
       </div>
       <div class="metric-pill">
         <span class="lbl">Turnover</span>
-        <span class="val" id="idxTurnover">Rs 4.29 Arba</span>
+        <span class="val" id="idxTurnover">Rs 3.28 Arba</span>
       </div>
       <div class="metric-pill">
-        <span class="val text-green" id="breadthAdv">95▲</span>
+        <span class="val text-green" id="breadthAdv">69▲</span>
         <span class="text-muted">/</span>
-        <span class="val text-red" id="breadthDec">238▼</span>
-        <span class="text-muted" style="font-size:11px;">(<span id="totalStocksCount">0</span>)</span>
+        <span class="val text-red" id="breadthDec">275▼</span>
+        <span class="text-muted" style="font-size:11px;">(<span id="totalStocksCount">286</span>)</span>
       </div>
 
       <button type="button" class="yt-icon-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Switch Dark / Light Theme" style="border:1px solid var(--border);">
@@ -3297,9 +3297,9 @@
 
         const m = data.market || {};
         window.lastMarketIsOpen = Boolean(m.isOpen);
-        const idxVal = Number(m.nepseIndex ?? m.index ?? 2587.25);
-        const idxChg = Number(m.pointChange ?? m.change ?? -11.90);
-        const idxPct = Number(m.percentageChange ?? m.pctChange ?? -0.45);
+        const idxVal = Number(m.nepseIndex ?? m.index ?? 2566.76);
+        const idxChg = Number(m.pointChange ?? m.change ?? -20.48);
+        const idxPct = Number(m.percentageChange ?? m.pctChange ?? -0.79);
 
         document.getElementById('idxValue').textContent = fmtNum(idxVal, 2);
         const idxBadge = document.getElementById('idxChange');
@@ -3307,9 +3307,9 @@
         idxBadge.textContent = `${sign}${fmtNum(idxChg, 2)} (${sign}${fmtNum(idxPct, 2)}%)`;
         idxBadge.className = `badge ${idxChg > 0 ? 'badge-green' : idxChg < 0 ? 'badge-red' : 'badge-neutral'}`;
 
-        const sensVal = Number(m.sensitiveIndex ?? 463.02);
-        const sensChg = Number(m.sensitiveChange ?? -1.74);
-        const sensPct = Number(m.sensitivePctChange ?? -0.37);
+        const sensVal = Number(m.sensitiveIndex ?? 459.85);
+        const sensChg = Number(m.sensitiveChange ?? -3.17);
+        const sensPct = Number(m.sensitivePctChange ?? -0.68);
         const sensValEl = document.getElementById('sensValue');
         const sensBadgeEl = document.getElementById('sensChange');
         if (sensValEl) sensValEl.textContent = fmtNum(sensVal, 2);
@@ -3319,15 +3319,15 @@
           sensBadgeEl.className = `badge ${sensChg > 0 ? 'badge-green' : sensChg < 0 ? 'badge-red' : 'badge-neutral'}`;
         }
 
-        const turnArba = m.turnoverArba ?? (m.totalTurnover ? (m.totalTurnover / 1e9) : 4.29);
+        const turnArba = m.turnoverArba ?? (m.totalTurnover ? (m.totalTurnover / 1e9) : 3.28);
         document.getElementById('idxTurnover').textContent = `Rs ${fmtNum(turnArba, 2)} Arba`;
-        document.getElementById('breadthAdv').textContent = `${m.advances || 0}▲`;
-        document.getElementById('breadthDec').textContent = `${m.declines || 0}▼`;
+        document.getElementById('breadthAdv').textContent = `${m.advances || 69}▲`;
+        document.getElementById('breadthDec').textContent = `${m.declines || 275}▼`;
         document.getElementById('totalStocksCount').textContent = allSignals.length;
 
         const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         document.getElementById('dataSourceStatus').textContent =
-          `⚡ Synced (${srvMs}ms) • ${m.status || 'OFFICIAL NEPSE FEED'} • ${fmtInt(m.totalVolume || 11912550)} Kitta • ${nowStr}`;
+          `⚡ Synced (${srvMs}ms) • ${m.status || 'OFFICIAL NEPSE FEED'} • ${fmtInt(m.totalVolume || 9003388)} Kitta • ${nowStr}`;
 
         if (syncBtn) {
           syncBtn.disabled = false;

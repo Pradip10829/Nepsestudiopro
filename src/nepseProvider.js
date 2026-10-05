@@ -329,28 +329,45 @@ class NepseProvider {
     this.lastScrapedAt = 0;
     this.dataSource = "NEPSE_VERIFIED_FEED";
     this.marketIndex = {
-      nepseIndex: 2587.25,
-      previousValue: 2599.15,
-      openingValue: 2592.26,
-      dayHigh: 2600.48,
-      dayLow: 2582.36,
-      pointChange: -11.90,
-      percentageChange: -0.45,
-      turnover: 4293774181.11,
-      volume: 11912550,
-      noOfTransactions: 43685,
-      noOfTradedCompanies: 356,
-      noOfGainers: 95,
-      noOfLosers: 238,
-      noOfUnchanged: 23,
-      asOfDateString: "As of Fri, 02 Oct 2026 | 03:00:00 PM",
-      sensitiveIndex: 463.02,
-      sensitiveChange: -1.74,
-      sensitivePctChange: -0.37,
-      floatIndex: 178.36,
-      floatChange: -0.81,
-      floatPctChange: -0.45,
-      subIndices: []
+      nepseIndex: 2566.76,
+      previousValue: 2587.24,
+      openingValue: 2586.24,
+      dayHigh: 2586.24,
+      dayLow: 2558.35,
+      pointChange: -20.48,
+      percentageChange: -0.79,
+      turnover: 3279509836.32,
+      volume: 9003388,
+      noOfTransactions: 44777,
+      noOfTradedCompanies: 359,
+      noOfGainers: 69,
+      noOfLosers: 275,
+      noOfUnchanged: 15,
+      asOfDateString: "As of Mon, 05 Oct 2026 | 03:00:00 PM",
+      sensitiveIndex: 459.85,
+      sensitiveChange: -3.17,
+      sensitivePctChange: -0.68,
+      floatIndex: 176.88,
+      floatChange: -1.47,
+      floatPctChange: -0.82,
+      senFloatIndex: 155.08,
+      senFloatChange: -1.10,
+      senFloatPctChange: -0.70,
+      subIndices: [
+        { name: "Banking", value: 1483.73, pointChange: -10.73, change: -0.71, turnover: 460001825.0, gainers: 2, losers: 18 },
+        { name: "Development Bank", value: 5310.21, pointChange: -29.16, change: -0.54, turnover: 151695846.5, gainers: 2, losers: 13 },
+        { name: "Finance", value: 2175.53, pointChange: -23.46, change: -1.06, turnover: 56461602.9, gainers: 2, losers: 12 },
+        { name: "Hotels And Tourism", value: 6903.80, pointChange: -73.28, change: -1.05, turnover: 59288396.32, gainers: 0, losers: 8 },
+        { name: "HydroPower", value: 3489.67, pointChange: -36.95, change: -1.04, turnover: 1427304580.6, gainers: 12, losers: 99 },
+        { name: "Investment", value: 93.63, pointChange: -1.01, change: -1.07, turnover: 224714283.1, gainers: 0, losers: 8 },
+        { name: "Life Insurance", value: 11562.14, pointChange: -89.56, change: -0.76, turnover: 114491566.6, gainers: 2, losers: 11 },
+        { name: "Manu.& Pro.", value: 10528.31, pointChange: -104.51, change: -0.98, turnover: 418508449.9, gainers: 1, losers: 15 },
+        { name: "Microfinance", value: 4447.00, pointChange: -27.24, change: -0.60, turnover: 107388373.0, gainers: 10, losers: 38 },
+        { name: "Mutual Fund", value: 19.46, pointChange: -0.01, change: -0.05, turnover: 8138013.8, gainers: 17, losers: 20 },
+        { name: "Non Life Insurance", value: 9412.51, pointChange: -45.65, change: -0.48, turnover: 35923522.5, gainers: 1, losers: 11 },
+        { name: "Others", value: 1792.81, pointChange: -16.67, change: -0.92, turnover: 42065477.7, gainers: 0, losers: 9 },
+        { name: "Trading", value: 3199.60, pointChange: 10.71, change: 0.33, turnover: 7407099.0, gainers: 1, losers: 1 }
+      ]
     };
     this.initSeedData();
     this.loadLiveDiskCache();
@@ -523,13 +540,15 @@ class NepseProvider {
   }
 
   syncNepseIndexQuote() {
-    const idxVal = this.marketIndex.nepseIndex || 2595.95;
-    const ptChange = this.marketIndex.pointChange ?? 0.26;
-    const pctChange = this.marketIndex.percentageChange ?? 0.01;
-    const prevClose = round2(idxVal - ptChange);
-    const high = round2(idxVal + 14.5);
-    const low = round2(idxVal - 11.2);
-    const volume = 11520000;
+    const idxVal = this.marketIndex.nepseIndex || 2566.76;
+    const ptChange = this.marketIndex.pointChange ?? -20.48;
+    const pctChange = this.marketIndex.percentageChange ?? -0.79;
+    const prevClose = this.marketIndex.previousValue || round2(idxVal - ptChange);
+    const openVal = this.marketIndex.openingValue || prevClose;
+    const high = this.marketIndex.dayHigh || round2(Math.max(idxVal, openVal, prevClose));
+    const low = this.marketIndex.dayLow || round2(Math.min(idxVal, openVal, prevClose));
+    const volume = this.marketIndex.volume || 9003388;
+    const turnover = this.marketIndex.turnover || 3279509836.32;
 
     if (!this.history.has("NEPSE")) {
       const bars = generateHistoricalBars("NEPSE", idxVal, "bullish", 220);
@@ -543,14 +562,14 @@ class NepseProvider {
       sector: "NEPSE Benchmark Index",
       sectorPE: 24.5,
       ltp: idxVal,
-      open: prevClose,
+      open: openVal,
       high,
       low,
       prevClose,
       pointChange: ptChange,
       percentageChange: pctChange,
       volume,
-      turnover: 4890000000,
+      turnover,
       high52w: 3000.81,
       low52w: 1960.4,
       eps: 105.95,
@@ -566,9 +585,9 @@ class NepseProvider {
       cashDividend: 0,
       topBuyBrokers: [58, 45, 34],
       topSellBrokers: [28, 49, 42],
-      bias: "bullish",
+      bias: ptChange >= 0 ? "bullish" : "neutral",
       isIndex: true,
-      merolaganiUrl: "https://www.merolagani.com/CompanyDetail.aspx?symbol=nepse",
+      merolaganiUrl: "https://merolagani.com/LatestMarket.aspx",
       source: "MEROLAGANI_LIVE",
       updatedAt: new Date().toISOString()
     });
@@ -865,7 +884,14 @@ class NepseProvider {
       } else {
         raw = require("../data/live_quotes_cache.json");
       }
-      if (raw && raw.marketIndex && raw.marketIndex.nepseIndex >= 1800 && raw.marketIndex.turnover > 0) {
+      if (
+        raw &&
+        raw.marketIndex &&
+        raw.marketIndex.nepseIndex >= 1800 &&
+        raw.marketIndex.turnover > 0 &&
+        raw.marketIndex.asOfDateString &&
+        !String(raw.marketIndex.asOfDateString).includes("02 Oct 2026")
+      ) {
         this.marketIndex = { ...this.marketIndex, ...raw.marketIndex };
       }
       if (raw && Array.isArray(raw.quotes) && raw.quotes.length > 5) {
@@ -959,7 +985,7 @@ class NepseProvider {
   async refreshLiveQuotes(force = false) {
     const now = Date.now();
     const { isOpen } = this.isMarketOpenNow();
-    if (!isOpen && this.quotes.size > 100) {
+    if (!isOpen && !force && this.quotes.size > 100) {
       this.applyMeroSharePortfolioLocks();
       this.syncNepseIndexQuote();
       return;
@@ -1057,8 +1083,8 @@ class NepseProvider {
         })
         .catch(() => {});
 
-      // 3. MeroLagani Live Market Quotes (independent fast stream)
-      const meroTask = cheerio
+      // 3. MeroLagani Live Market Quotes (only during open market hours so EOD signals stay locked)
+      const meroTask = cheerio && isOpen
         ? fetchWithTimeout("https://merolagani.com/LatestMarket.aspx", 1800)
             .then(async (res) => {
               if (!res || !res.ok) return;
@@ -1125,8 +1151,8 @@ class NepseProvider {
             .catch(() => {})
         : Promise.resolve();
 
-      // 4. ShareSansar Concurrent Fallback (runs in parallel so we never wait 2x sequentially)
-      const ssTask = cheerio
+      // 4. ShareSansar Concurrent Fallback (only during open market hours so EOD signals stay locked)
+      const ssTask = cheerio && isOpen
         ? fetchWithTimeout("https://www.sharesansar.com/today-share-price", 1800)
             .then(async (res) => {
               if (!res || !res.ok || meroUpdated > 10) return;
@@ -1177,6 +1203,7 @@ class NepseProvider {
         : Promise.resolve();
 
       await Promise.allSettled([idxTask, subTask, meroTask, ssTask]);
+      this.saveLiveDiskCache();
     };
 
     this._activeRefreshPromise = runBackgroundSync().finally(() => {
