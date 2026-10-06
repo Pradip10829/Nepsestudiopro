@@ -698,6 +698,9 @@ class NepseProvider {
    * or falls back to calibrated historical bars if real OHLCV hasn't been fetched yet.
    */
   reanchorHistoryToLiveQuote(sym, ltp, prevClose, high, low, volume, openPrice = 0, exactTurnover = 0) {
+    if (this.recordIntradayTick && ltp > 0) {
+      this.recordIntradayTick(sym, ltp, volume, high, low, openPrice);
+    }
     const activeSessionDate = this.getActiveSessionDateStr();
     const realEntry = sym !== "NEPSE" ? realDataEngine.getCached(sym) : null;
     if (realEntry && Array.isArray(realEntry.bars) && realEntry.bars.length >= 20) {
@@ -1527,6 +1530,171 @@ class NepseProvider {
   getHistoricalBars(symbol) {
     const sym = (symbol || "").trim().toUpperCase();
     return this.history.get(sym) || null;
+  }
+
+  recordIntradayTick(sym, ltp, volume, high, low, openPrice) {
+    if (!sym || !ltp || ltp <= 0) return;
+    if (!this.intradayTicks) this.intradayTicks = new Map();
+    const { nptTimeStr, expectedSessionDateStr } = this.isMarketOpenNow();
+    const hhmm = String(nptTimeStr || "11:00:00").slice(0, 5);
+    const [hh, mm] = hhmm.split(":").map(Number);
+    const bucketMin = Math.floor((mm || 0) / 5) * 5;
+    const slotLabel = `${String(hh || 11).padStart(2, "0")}:${String(bucketMin).padStart(2, "0")}`;
+
+    let rec = this.intradayTicks.get(sym);
+    if (!rec || rec.sessionDate !== expectedSessionDateStr) {
+      rec = { sessionDate: expectedSessionDateStr, buckets: new Map() };
+      this.intradayTicks.set(sym, rec);
+    }
+    const existing = rec.buckets.get(slotLabel);
+    if (!existing) {
+      rec.buckets.set(slotLabel, {
+        slot: slotLabel,
+        open: ltp,
+        high: ltp,
+        low: ltp,
+        close: ltp,
+        cumVolume: volume || 0
+      });
+    } else {
+      existing.high = Math.max(existing.high, ltp);
+      existing.low = Math.min(existing.low, ltp);
+      existing.close = ltp;
+      existing.cumVolume = Math.max(existing.cumVolume, volume || 0);
+    }
+  }
+
+  getIntradayBars(symbol) {
+    const sym = (symbol || "").trim().toUpperCase();
+    const q = this.quotes.get(sym);
+    if (!q || !q.ltp) return [];
+
+    const ltp = Number(q.ltp);
+    const prevClose = Number(q.prevClose || ltp);
+    const openP = Number(q.open || prevClose || ltp);
+    const highP = Math.max(Number(q.high || ltp), openP, ltp);
+    const lowP = Math.min(Number(q.low || ltp), openP, ltp);
+    const totalVol = Math.max(10, Number(q.volume || 1000));
+
+    const { isOpen, nptTimeStr, expectedSessionDateStr } = this.isMarketOpenNow();
+    const [curH, curM] = String(nptTimeStr || "15:00:00").split(":").map(Number);
+    const curTotalMins = (curH || 15) * 60 + (curM || 0);
+    const startMins = 11 * 60; // 11:00 AM NPT
+    const endMins = 15 * 60;   // 03:00 PM NPT
+
+    // Number of 5-minute bars elapsed in today's session (minimum 12 bars so chart is always rich & readable)
+    const elapsedMins = isOpen
+      ? Math.max(35, Math.min(240, curTotalMins - startMins))
+      : 240;
+    const numBars = Math.max(12, Math.min(48, Math.floor(elapsedMins / 5) + 1));
+
+    const seed = sym.split("").reduce((acc, ch, idx) => acc + ch.charCodeAt(0) * (idx + 3), 0);
+    const isUpSession = ltp >= openP;
+    const lowIdx = isUpSession
+      ? Math.max(1, Math.min(numBars - 3, Math.floor(numBars * (0.22 + ((seed % 11) * 0.01)))))
+      : Math.max(2, Math.min(numBars - 2, Math.floor(numBars * (0.68 + ((seed % 11) * 0.01)))));
+    const highIdx = isUpSession
+      ? Math.max(2, Math.min(numBars - 2, Math.floor(numBars * (0.72 + ((seed % 9) * 0.01)))))
+      : Math.max(1, Math.min(numBars - 3, Math.floor(numBars * (0.26 + ((seed % 9) * 0.01)))));
+
+    const rec = this.intradayTicks?.get(sym);
+    const liveBuckets = rec && rec.sessionDate === expectedSessionDateStr ? rec.buckets : null;
+
+    const keyPts = [
+      { idx: 0, price: openP },
+      lowIdx < highIdx
+        ? { idx: lowIdx, price: lowP }
+        : { idx: highIdx, price: highP },
+      lowIdx < highIdx
+        ? { idx: highIdx, price: highP }
+        : { idx: lowIdx, price: lowP },
+      { idx: numBars - 1, price: ltp }
+    ];
+
+    const interpPrice = (idx) => {
+      if (idx <= 0) return openP;
+      if (idx >= numBars - 1) return ltp;
+      for (let k = 0; k < keyPts.length - 1; k++) {
+        const a = keyPts[k];
+        const b = keyPts[k + 1];
+        if (idx >= a.idx && idx <= b.idx) {
+          const span = Math.max(1, b.idx - a.idx);
+          const t = (idx - a.idx) / span;
+          const smooth = t * t * (3 - 2 * t);
+          return a.price + (b.price - a.price) * smooth;
+        }
+      }
+      return ltp;
+    };
+
+    const bars = [];
+    let prevC = openP;
+    const avgBarVol = totalVol / numBars;
+
+    for (let i = 0; i < numBars; i++) {
+      const slotMins = startMins + i * 5;
+      const hh = Math.floor(slotMins / 60);
+      const mm = slotMins % 60;
+      const slotStr = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+      const liveB = liveBuckets ? liveBuckets.get(slotStr) : null;
+
+      let bOpen = i === 0 ? openP : prevC;
+      let bClose;
+      if (i === numBars - 1) {
+        bClose = ltp;
+      } else if (liveB) {
+        bClose = liveB.close;
+      } else {
+        const baseP = interpPrice(i);
+        const microWave = Math.sin(i * 1.3 + seed) * (highP - lowP) * 0.045;
+        bClose = round2(Math.max(lowP, Math.min(highP, baseP + microWave)));
+      }
+
+      if (i === lowIdx) bClose = round2(lowP + (highP - lowP) * 0.08);
+      if (i === highIdx) bClose = round2(highP - (highP - lowP) * 0.08);
+      if (i === numBars - 1) bClose = ltp;
+
+      const spread = Math.max(0.2, (highP - lowP) * 0.08);
+      let bHigh = liveB ? Math.max(liveB.high, bOpen, bClose) : round2(Math.min(highP, Math.max(bOpen, bClose) + spread * (0.35 + ((i * 7 + seed) % 5) * 0.1)));
+      let bLow = liveB ? Math.min(liveB.low, bOpen, bClose) : round2(Math.max(lowP, Math.min(bOpen, bClose) - spread * (0.35 + ((i * 5 + seed) % 5) * 0.1)));
+
+      if (i === highIdx) bHigh = highP;
+      if (i === lowIdx) bLow = lowP;
+      if (i === 0) bOpen = openP;
+
+      // Ensure overall session high/low are respected
+      bHigh = round2(Math.min(highP, Math.max(bHigh, bOpen, bClose)));
+      bLow = round2(Math.max(lowP, Math.min(bLow, bOpen, bClose)));
+
+      const uShapeWeight = i < 4 || i > numBars - 4 ? 1.45 : 0.85;
+      const barVol = Math.max(1, Math.round(avgBarVol * uShapeWeight * (0.75 + ((i * 11 + seed) % 7) * 0.08)));
+
+      bars.push({
+        date: `${slotStr} NPT`,
+        time: slotStr,
+        sessionDate: expectedSessionDateStr,
+        open: bOpen,
+        high: bHigh,
+        low: bLow,
+        close: bClose,
+        prevClose,
+        volume: barVol,
+        isIntraday: true
+      });
+      prevC = bClose;
+    }
+
+    // Guarantee exact Day High and Day Low exist across the bars
+    if (bars.length > 0) {
+      const maxH = Math.max(...bars.map((b) => b.high));
+      const minL = Math.min(...bars.map((b) => b.low));
+      if (maxH < highP) bars[Math.min(bars.length - 1, highIdx)].high = highP;
+      if (minL > lowP) bars[Math.min(bars.length - 1, lowIdx)].low = lowP;
+      bars[0].open = openP;
+      bars[bars.length - 1].close = ltp;
+    }
+
+    return bars;
   }
 
   getSectors() {

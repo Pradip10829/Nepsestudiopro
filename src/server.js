@@ -497,11 +497,13 @@ const requestHandler = async (req, res) => {
           }
         : null;
       const stockNews = await nepseProvider.getNewsFeed(sym);
+      const intradayBars = nepseProvider.getIntradayBars ? nepseProvider.getIntradayBars(sym) : [];
       return sendJson(res, 200, {
         ok: true,
         symbol: sym,
         quote,
         bars: adjBars.slice(-200),
+        intradayBars,
         analysis: enrichedSignal,
         signal: enrichedSignal,
         news: stockNews.items || []
