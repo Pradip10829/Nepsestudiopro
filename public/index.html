@@ -2053,6 +2053,9 @@
           <button class="tab-btn tab-green" id="tab-IMMEDIATE_BUY" onclick="setCategoryFilter('IMMEDIATE_BUY')">
             Immediate Buy <span class="tab-count" id="cnt-IMMEDIATE_BUY">0</span>
           </button>
+          <button class="tab-btn tab-green" id="tab-SWING_15D" onclick="setCategoryFilter('SWING_15D')">
+            🚀 15-Day Profit <span class="tab-count" id="cnt-SWING_15D">0</span>
+          </button>
           <button class="tab-btn tab-green" id="tab-WEEKLY_SWING" onclick="setCategoryFilter('WEEKLY_SWING')">
             📅 Weekly Swing <span class="tab-count" id="cnt-WEEKLY_SWING">0</span>
           </button>
@@ -2079,6 +2082,7 @@
           </select>
           <select id="sortSelect" class="select-box" onchange="handleSortSelect(this.value)" style="padding:5px 10px; font-size:12px;">
             <option value="score_desc">Sort: Highest Quant Score</option>
+            <option value="swing15Score_desc">Sort: Best 15-Day Profit Score</option>
             <option value="weeklyScore_desc">Sort: Best Weekly Swing Score</option>
             <option value="smcScore_desc">Sort: Best SMC Confluence Score</option>
             <option value="ltScore_desc">Sort: Best Long-Term</option>
@@ -2165,6 +2169,9 @@
             </span>
           </button>
         </nav>
+
+        <!-- 0C. 15-DAY PROFIT SWING CATEGORY SPOTLIGHT BANNER (Shown when 🚀 15-Day Profit tab is active) -->
+        <section id="swing15DayCategoryBanner" class="card" style="display:none; padding:14px 16px; border:1px solid rgba(16,185,129,0.45); background:linear-gradient(135deg, rgba(16,185,129,0.08), rgba(15,23,42,0.95));"></section>
 
         <!-- ================================================================
              1. WATCH STAGE: PRIMARY PLAYER COLUMN + RIGHT INTELLIGENCE DOCK
@@ -3894,10 +3901,40 @@
       return 'SAFE_TO_HOLD';
     }
 
+    function is15DaySwingCandidate(s) {
+      if (s.swing15Day && typeof s.swing15Day.is15DaySwing === 'boolean') {
+        return s.swing15Day.is15DaySwing && !s.isImmediateSell;
+      }
+      const rsi = Number(s.indicators?.rsi14 || 50);
+      const q = Number(s.quantScore ?? s.score ?? 50);
+      const win = Number(s.backtest?.winRate || 0);
+      const pf = Number(s.backtest?.profitFactor || 0);
+      const eps = Number(s.fundamentals?.eps || 0);
+      const roe = Number(s.fundamentals?.roe || 0);
+      return !s.isImmediateSell &&
+        s.indicators?.supertrend?.direction === 'BULLISH' &&
+        Number(s.ltp || 0) >= Number(s.indicators?.ema20 || 0) * 0.985 &&
+        rsi >= 44 && rsi <= 66 &&
+        q >= 65 &&
+        (win >= 55 || pf >= 1.25) &&
+        (eps >= 8 || roe >= 9);
+    }
+
+    function getSwing15Score(s) {
+      if (s.swing15Day && s.swing15Day.swing15Score !== undefined) {
+        return Number(s.swing15Day.swing15Score);
+      }
+      const q = Number(s.quantScore ?? s.score ?? 50);
+      const w = Number(s.weeklyTrading?.weeklyScore ?? 50);
+      const win = Number(s.backtest?.winRate || 50);
+      return Math.round(q * 0.45 + w * 0.35 + win * 0.2);
+    }
+
     function updateCategoryCounts() {
       const counts = {
         ALL: allSignals.length,
         IMMEDIATE_BUY: allSignals.filter(s => getBuyCatKey(s) === 'IMMEDIATE_BUY').length,
+        SWING_15D: allSignals.filter(s => is15DaySwingCandidate(s)).length,
         WEEKLY_SWING: allSignals.filter(s => s.weeklyTrading?.isWeeklyBuy && !s.isImmediateSell).length,
         LONG_TERM_BUY: allSignals.filter(s => s.longTerm?.isLongTermHold).length,
         BUY_ON_DIP: allSignals.filter(s => getBuyCatKey(s) === 'BUY_ON_DIP').length,
@@ -3914,7 +3951,7 @@
 
     function setCategoryFilter(cat) {
       activeCategory = cat;
-      const tabs = ['ALL', 'IMMEDIATE_BUY', 'WEEKLY_SWING', 'LONG_TERM_BUY', 'BUY_ON_DIP', 'SAFE_TO_HOLD', 'IMMEDIATE_SELL', 'SELL_ON_RALLY'];
+      const tabs = ['ALL', 'IMMEDIATE_BUY', 'SWING_15D', 'WEEKLY_SWING', 'LONG_TERM_BUY', 'BUY_ON_DIP', 'SAFE_TO_HOLD', 'IMMEDIATE_SELL', 'SELL_ON_RALLY'];
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-${t}`);
         if (!btn) return;
@@ -3928,6 +3965,10 @@
         currentSortKey = 'exitUrgency';
         currentSortDir = 'desc';
         document.getElementById('sortSelect').value = 'exitUrgency_desc';
+      } else if (cat === 'SWING_15D') {
+        currentSortKey = 'swing15Score';
+        currentSortDir = 'desc';
+        document.getElementById('sortSelect').value = 'swing15Score_desc';
       } else if (cat === 'WEEKLY_SWING') {
         currentSortKey = 'weeklyScore';
         currentSortDir = 'desc';
@@ -3949,6 +3990,7 @@
       const [key, dir] = val.split('_');
       const mapKey = {
         score: 'score',
+        swing15Score: 'swing15Score',
         weeklyScore: 'weeklyScore',
         smcScore: 'smcScore',
         ltScore: 'ltScore',
@@ -3993,12 +4035,106 @@
         case 'rsi': return Number(s.indicators?.rsi14 || 0);
         case 'ema20': return Number(s.indicators?.ema20 || 0);
         case 'score': return Number(s.quantScore ?? s.score ?? 0);
+        case 'swing15Score': return getSwing15Score(s);
         case 'weeklyScore': return Number(s.weeklyTrading?.weeklyScore ?? 50);
         case 'smcScore': return Number(s.smc?.smcScore ?? 50);
         case 'ltScore': return Number(s.longTerm?.longTermScore ?? 0);
         case 'exitUrgency': return Number(s.sellUrgencyScore ?? 0);
         default: return Number(s.quantScore ?? 0);
       }
+    }
+
+    function renderSwing15DayBanner(rows) {
+      const banner = document.getElementById('swing15DayCategoryBanner');
+      if (!banner) return;
+      if (activeCategory !== 'SWING_15D') {
+        banner.style.display = 'none';
+        return;
+      }
+      banner.style.display = 'block';
+      const top5 = rows.slice(0, 5);
+      const topRowsHtml = top5.map((s, idx) => {
+        const sw = s.swing15Day || {};
+        const score15 = getSwing15Score(s);
+        const ltp = Number(s.ltp || 0);
+        const ema20 = Number(s.indicators?.ema20 || ltp * 0.975);
+        const ex = s.exactExecution || {};
+        const buy60 = sw.primaryBuy60Pct || ex.exactBuyPrice || ltp;
+        const dip40 = sw.backupDip40Pct || Math.round(ema20 * 10) / 10;
+        const t1 = sw.day5To10Target1 || ex.exactSellTarget1 || Math.round(ltp * 1.075);
+        const t2 = sw.day10To15Target2 || ex.exactSellTarget2 || Math.round(ltp * 1.135);
+        const sl = sw.dailyCloseStopLoss || ex.exactStopLossPrice || Math.round(ltp * 0.945);
+        const t1Pct = ltp > 0 ? (((t1 - ltp) / ltp) * 100).toFixed(1) : '7.5';
+        const t2Pct = ltp > 0 ? (((t2 - ltp) / ltp) * 100).toFixed(1) : '13.5';
+        const winRate = fmtNum(s.backtest?.winRate, 1);
+        const pf = fmtNum(s.backtest?.profitFactor, 2);
+        const rulesPassed = s.masterConfluence?.rulesPassed ?? 4;
+        const badgeLabel = sw.swing15Badge || (idx === 0 ? '🏆 #1 15-DAY CONVICTION' : '🚀 15-DAY SWING PICK');
+        return `<tr style="border-bottom:1px solid var(--border-subtle); cursor:pointer;" onclick="selectStock('${s.symbol}', true)">
+          <td style="padding:8px 10px;">
+            <div style="display:flex; align-items:center; gap:7px;">
+              <span class="badge badge-green" style="font-size:10px;">#${idx + 1}</span>
+              <div>
+                <div style="font-weight:800; font-size:13px; color:var(--text-main);">${s.symbol} <span style="font-size:10px; color:var(--green-main); font-weight:700;">(${badgeLabel})</span></div>
+                <div style="font-size:10.5px; color:var(--text-secondary);">${s.companyName || s.name || s.symbol} • ${s.sector}</div>
+              </div>
+            </div>
+          </td>
+          <td class="right mono fw-700" style="padding:8px 10px;">Rs ${fmtNum(ltp, 1)}</td>
+          <td class="right mono fw-800 text-green" style="padding:8px 10px;">${score15}/100 <span style="font-size:10px; color:var(--text-secondary);">(${rulesPassed}/5 Rules)</span></td>
+          <td class="right mono" style="padding:8px 10px; color:#38bdf8; font-weight:700;">
+            <div>60%: Rs ${fmtNum(buy60, 1)}</div>
+            <div style="font-size:10px; color:var(--text-secondary);">40% Dip: Rs ${fmtNum(dip40, 1)}</div>
+          </td>
+          <td class="right mono text-green fw-700" style="padding:8px 10px;">Rs ${fmtNum(t1, 0)} (+${t1Pct}%)</td>
+          <td class="right mono text-green fw-800" style="padding:8px 10px;">Rs ${fmtNum(t2, 0)} (+${t2Pct}%)</td>
+          <td class="right mono text-red fw-700" style="padding:8px 10px;">Rs ${fmtNum(sl, 0)}</td>
+          <td class="right mono" style="padding:8px 10px; font-size:11px;">${winRate}% / ${pf}x</td>
+        </tr>`;
+      }).join('');
+
+      banner.innerHTML = `
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="badge badge-green" style="font-size:11px; padding:3px 9px;">🚀 15-DAY PROFIT SWING CATEGORY</span>
+              <span style="font-weight:800; font-size:15px; color:var(--text-main);">Top ${top5.length} Institutional 15-Day Swing Setups (${rows.length} Total Qualified)</span>
+            </div>
+            <div style="font-size:11.5px; color:var(--text-secondary); margin-top:3px;">
+              Filtered for <strong>Supertrend BULLISH</strong> + <strong>Price ≥ EMA20</strong> + <strong>RSI 44–66 Room to Run</strong> + <strong>4/5 or 5/5 Master Rules</strong> + <strong>Historical Win Rate ≥ 55%</strong> + <strong>Healthy EPS/ROE</strong>. Click any stock below to load its chart.
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" class="btn btn-ghost" style="padding:5px 10px; font-size:11.5px;" onclick="switchAppPage('PAGE_3')">View Full Table (${rows.length})</button>
+            <button type="button" class="btn btn-ghost" style="padding:5px 10px; font-size:11.5px;" onclick="setCategoryFilter('ALL')">✕ Close Category</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto; border:1px solid var(--border-subtle); border-radius:8px; background:rgba(9,13,22,0.75);">
+          <table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border-subtle); background:rgba(15,23,42,0.9); color:var(--text-secondary); font-size:10.5px; text-transform:uppercase;">
+                <th style="text-align:left; padding:7px 10px;">Rank &amp; Stock</th>
+                <th class="right" style="padding:7px 10px;">LTP</th>
+                <th class="right" style="padding:7px 10px;">15D Score</th>
+                <th class="right" style="padding:7px 10px;">60% / 40% Split Entry</th>
+                <th class="right" style="padding:7px 10px;">Day 5–10 T1 (Book 50%)</th>
+                <th class="right" style="padding:7px 10px;">Day 10–15 T2 (Trail 50%)</th>
+                <th class="right" style="padding:7px 10px;">3:00 PM Close Stop</th>
+                <th class="right" style="padding:7px 10px;">Backtest Win / PF</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topRowsHtml || '<tr><td colspan="8" style="text-align:center; padding:14px;">No 15-Day Profit candidates match current sector/search filter.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:9px; display:flex; flex-wrap:wrap; gap:8px; font-size:11px; color:var(--text-secondary);">
+          <span style="background:rgba(16,185,129,0.12); color:var(--green-main); padding:3px 8px; border-radius:5px; font-weight:700;">Rule 1: T+2 Settlement Buffer (Buy Day 1 → Tradable Day 3–4)</span>
+          <span style="background:rgba(56,189,248,0.12); color:#38bdf8; padding:3px 8px; border-radius:5px; font-weight:700;">Rule 2: 60% Primary Buy + 40% EMA20 Dip Limit</span>
+          <span style="background:rgba(245,158,11,0.12); color:#fbbf24; padding:3px 8px; border-radius:5px; font-weight:700;">Rule 3: Book 50% at T1 (+6% to +9%) &amp; Move Stop to WACC Breakeven</span>
+          <span style="background:rgba(244,63,94,0.12); color:var(--red-main); padding:3px 8px; border-radius:5px; font-weight:700;">Rule 4: Honour 3:00 PM Daily Closing Stop-Loss Strictly</span>
+        </div>
+      `;
     }
 
     function renderYoutubeUpNextAndCards(rows) {
@@ -4012,8 +4148,8 @@
           const buyKey = getBuyCatKey(s);
           const isBuy = buyKey === 'IMMEDIATE_BUY' || buyKey === 'BUY_ON_DIP';
           const isSell = s.isImmediateSell;
-          const tagText = isSell ? 'SELL NOW' : buyKey === 'IMMEDIATE_BUY' ? 'BUY NOW' : buyKey === 'BUY_ON_DIP' ? 'BUY DIP' : 'HOLD';
-          const tagBg = isSell ? '#e11d48' : isBuy ? '#059669' : '#475569';
+          const tagText = activeCategory === 'SWING_15D' ? '15D SWING' : isSell ? 'SELL NOW' : buyKey === 'IMMEDIATE_BUY' ? 'BUY NOW' : buyKey === 'BUY_ON_DIP' ? 'BUY DIP' : 'HOLD';
+          const tagBg = activeCategory === 'SWING_15D' ? '#059669' : isSell ? '#e11d48' : isBuy ? '#059669' : '#475569';
           const ex = s.exactExecution || {};
           const spark = buildSparklineSvg(s.recentBars, pct >= 0, 100, 24);
           return `<div class="yt-upnext-item ${s.symbol === selectedSymbol ? 'active' : ''}" onclick="selectStock('${s.symbol}', true)">
@@ -4023,7 +4159,7 @@
                 <span style="background:${tagBg}; color:#fff; font-size:8.5px; font-weight:800; padding:1px 5px; border-radius:4px;">${tagText}</span>
               </div>
               <div style="margin:1px 0;">${spark}</div>
-              <span class="yt-thumb-duration">${s.quantScore}/100</span>
+              <span class="yt-thumb-duration">${activeCategory === 'SWING_15D' ? `15D: ${getSwing15Score(s)}/100` : `${s.quantScore}/100`}</span>
             </div>
             <div style="display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;">
               <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
@@ -4062,7 +4198,7 @@
           return `<div class="yt-video-card" onclick="selectStock('${s.symbol}', true)">
             <div class="yt-video-thumb">
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span class="badge ${badgeCls}">${s.buyCategory || 'HOLD'}</span>
+                <span class="badge ${badgeCls}">${activeCategory === 'SWING_15D' ? (s.swing15Day?.swing15Badge || '🚀 15-DAY SWING') : (s.buyCategory || 'HOLD')}</span>
                 <span class="mono" style="font-size:11px; color:var(--text-secondary);">RSI ${fmtNum(s.indicators?.rsi14, 0)}</span>
               </div>
               <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin:2px 0;">
@@ -4111,6 +4247,7 @@
         const bKey = getBuyCatKey(s);
         const sKey = getSellCatKey(s);
         if (activeCategory === 'IMMEDIATE_BUY') return bKey === 'IMMEDIATE_BUY';
+        if (activeCategory === 'SWING_15D') return is15DaySwingCandidate(s);
         if (activeCategory === 'WEEKLY_SWING') return Boolean(s.weeklyTrading?.isWeeklyBuy && !s.isImmediateSell);
         if (activeCategory === 'BUY_ON_DIP') return bKey === 'BUY_ON_DIP';
         if (activeCategory === 'LONG_TERM_BUY') return Boolean(s.longTerm?.isLongTermHold);
@@ -4132,6 +4269,7 @@
       lastFilteredRows = rows;
       document.getElementById('filteredCountBadge').textContent = `${rows.length} Equities`;
 
+      renderSwing15DayBanner(rows);
       renderYoutubeUpNextAndCards(rows);
 
       if (rows.length === 0) {

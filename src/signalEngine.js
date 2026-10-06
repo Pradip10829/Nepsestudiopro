@@ -3685,6 +3685,59 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
         ? `LAGGING MARKET (${rsAlphaPct}% vs NEPSE) 🔴`
         : `IN-LINE WITH NEPSE (${rsAlphaPct >= 0 ? "+" : ""}${rsAlphaPct}%) 🟡`;
 
+  // 15-Day Swing Profit Engine (T+2 Demat Settled, 5 Veto Rules + Backtest Win Rate + Earnings Quality)
+  const sw15_btWin = Number(backtest?.winRate || 50);
+  const sw15_btPf = Number(backtest?.profitFactor || 1.0);
+  const sw15_fEps = Number(fundamentals?.eps || 0);
+  const sw15_fRoe = Number(fundamentals?.roe || 0);
+  const sw15_rulesCount = Number(masterConsensus?.rulesPassedCount || 0);
+  const sw15_wkScoreVal = Number(weeklyTrading?.weeklyScore || 50);
+  const sw15_mScoreVal = Number(masterConsensus?.masterScore || quantScore || 50);
+
+  const swing15Score = Math.min(
+    99,
+    Math.max(
+      15,
+      Math.round(
+        sw15_mScoreVal * 0.38 +
+          sw15_wkScoreVal * 0.22 +
+          Math.min(100, sw15_btWin * 1.1) * 0.22 +
+          Math.min(100, Math.max(30, sw15_fRoe * 3.5 + (sw15_fEps > 15 ? 25 : sw15_fEps > 8 ? 15 : 0))) * 0.18
+      )
+    )
+  );
+
+  const is15DaySwing = Boolean(
+    !isImmediateSell &&
+      supertrend.direction === "BULLISH" &&
+      currentPrice >= ema20 * 0.985 &&
+      rsi14 >= 44 &&
+      rsi14 <= 66 &&
+      quantScore >= 65 &&
+      sw15_rulesCount >= 4 &&
+      (sw15_btWin >= 55 || sw15_btPf >= 1.25) &&
+      (sw15_fEps >= 8 || sw15_fRoe >= 9)
+  );
+
+  const swing15Day = {
+    is15DaySwing,
+    swing15Score,
+    swing15Badge: is15DaySwing
+      ? "🚀 15-DAY PROFIT PICK"
+      : !isImmediateSell && supertrend.direction === "BULLISH" && quantScore >= 58
+        ? "🟢 15D WATCHLIST"
+        : "⏳ WAIT / AVOID",
+    horizonTradingDays: 15,
+    primaryBuy60Pct: exactBuyPrice,
+    backupDip40Pct: exactBackupDipPrice,
+    day5To10Target1: exactSellTarget1,
+    day5To10GainPct: exactSellTarget1GainPct,
+    day10To15Target2: exactSellTarget2,
+    day10To15GainPct: exactSellTarget2GainPct,
+    dailyCloseStopLoss: exactStopLossPrice,
+    maxRiskPct: exactStopLossPct
+  };
+
   return {
     symbol: quote.symbol,
     companyName: quote.companyName,
@@ -3730,6 +3783,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     whyBuyBullets,
     exactExecution,
     masterConsensus,
+    swing15Day,
     simpleAdvisor,
     longTerm,
     sectorChampion,

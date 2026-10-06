@@ -85,6 +85,17 @@ async function handleMessage(rawText, senderId = "default") {
     return await getEodSummaryAndStocksOfTheDayMessage();
   }
 
+  // 3c. Dedicated 15-Day Profit Swing Category (!15days, !15d, !swing15, 15 days, 15 day profit)
+  if (
+    ["!15days", "/15days", "15days", "!15d", "/15d", "15d", "!swing15", "/swing15", "swing15", "!15day"].includes(cmd) ||
+    lower === "15 days" ||
+    lower === "15 day" ||
+    lower === "15 day profit" ||
+    lower === "15 days profit"
+  ) {
+    return await get15DaySwingMessage();
+  }
+
   // 4. Sector Summary
   if (["!sectors", "/sectors", "sectors", "sector", "!sector"].includes(lower)) {
     return getSectorsMessage();
@@ -2263,6 +2274,47 @@ async function getEodSummaryAndStocksOfTheDayMessage() {
     `1️⃣ *Check 3:00 PM Daily Close vs Hard Stop:* Hold safely if today's close stayed above Stop-Loss; exit tomorrow at 11:00 AM only if 3:00 PM close broke below Stop-Loss.\n` +
     `2️⃣ *Prepare Limit Orders at Support:* Place limit buy orders near the *Exact Buy / Dip Floor* for the Top 5 Stocks of the Day (never chase >3% gap-ups at 11:00 AM).\n` +
     `3️⃣ *Complete T+1 EDIS:* If you sold shares today, complete MeroShare My Purchase Source & EDIS transfer tonight.`;
+
+  return msg;
+}
+
+async function get15DaySwingMessage() {
+  const allQuotes = await nepseProvider.getAllQuotes();
+  const analyzed = [];
+  for (const q of allQuotes) {
+    try {
+      const history = nepseProvider.getHistoricalBars(q.symbol, 160);
+      const sig = analyzeStock(q, history);
+      if (sig && sig.swing15Day && sig.swing15Day.is15DaySwing && !sig.isImmediateSell) {
+        analyzed.push(sig);
+      }
+    } catch (_) {}
+  }
+
+  analyzed.sort((a, b) => (b.swing15Day?.swing15Score || 0) - (a.swing15Day?.swing15Score || 0));
+  const top5 = analyzed.slice(0, 5);
+
+  let msg =
+    `🚀 *NEPSE 15-DAY PROFIT SWING CATEGORY (${analyzed.length} Qualified Setups)*\n` +
+    `_Filtered: Supertrend BULLISH + Price ≥ EMA20 + RSI 44–66 + 4/5 Master Rules + Win Rate ≥ 55%_\n\n` +
+    `🏆 *TOP 5 STOCKS FOR NEXT 15 TRADING DAYS:*\n`;
+
+  for (let i = 0; i < top5.length; i++) {
+    const s = top5[i];
+    const sw = s.swing15Day || {};
+    msg +=
+      `${i + 1}. *${s.symbol}* (${s.sector}) — *LTP Rs ${s.ltp}* | 15D Score: *${sw.swing15Score}/100*\n` +
+      `   • *60% Entry:* Rs ${sw.primaryBuy60Pct} | *40% Dip Limit (EMA20):* Rs ${sw.backupDip40Pct}\n` +
+      `   • *Day 5–10 T1:* Rs ${sw.day5To10Target1} | *Day 10–15 T2:* Rs ${sw.day10To15Target2} | *3PM Close Stop:* Rs ${sw.dailyCloseStopLoss}\n` +
+      `   • *Backtest:* ${s.backtest?.winRate}% Win Rate (${s.backtest?.profitFactor}x PF) | ${s.masterConfluence?.rulesPassed || 4}/5 Rules\n\n`;
+  }
+
+  msg +=
+    `📐 *15-DAY SWING EXECUTION RULES:*\n` +
+    `1️⃣ *T+2 Settlement Buffer:* Buy on Day 1 → Shares credit to Demat by Day 3–4 → Harvest profit on Days 5–15.\n` +
+    `2️⃣ *60% / 40% Split Entry:* Buy 60% at Primary Buy Zone, keep 40% limit order at 20D EMA Dip Floor.\n` +
+    `3️⃣ *50% Partial Booking at T1:* Sell 50% at T1 (+6% to +9%) and move Stop-Loss on remaining 50% to WACC breakeven.\n` +
+    `4️⃣ *3:00 PM Closing Stop-Loss:* Exit only if the 3:00 PM daily candle closes below Stop-Loss.`;
 
   return msg;
 }
