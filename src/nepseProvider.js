@@ -519,10 +519,20 @@ class NepseProvider {
   }
 
   startBackgroundRealDataSync() {
-    // Warm news cache once on startup
-    setTimeout(() => {
+    // Immediate live market sync on startup + continuous 15-second auto-poll during trading hours
+    const startupTimer = setTimeout(() => {
+      this.refreshLiveQuotes(true).catch(() => {});
       this.getNewsFeed("", false).catch(() => {});
-    }, 300);
+    }, 150);
+    if (startupTimer.unref) startupTimer.unref();
+
+    const livePollTimer = setInterval(() => {
+      const { isOpen } = this.isMarketOpenNow();
+      if (isOpen || this.isCacheStaleForLatestSession()) {
+        this.refreshLiveQuotes(true).catch(() => {});
+      }
+    }, 15000);
+    if (livePollTimer.unref) livePollTimer.unref();
 
     // Only run background symbol scraping if real_market_cache has not been populated yet
     const cachedCount = Object.keys(realDataEngine.cache?.stocks || {}).length;
@@ -530,7 +540,7 @@ class NepseProvider {
       return;
     }
 
-    setTimeout(async () => {
+    const warmTimer = setTimeout(async () => {
       try {
         const coreSymbols = COMPANIES_SEED.map((c) => c.symbol);
         const priorityExtras = [
@@ -553,6 +563,7 @@ class NepseProvider {
         }
       } catch (_) {}
     }, 800);
+    if (warmTimer.unref) warmTimer.unref();
   }
 
   syncNepseIndexQuote() {
@@ -1046,9 +1057,36 @@ class NepseProvider {
     return Boolean(expectedSessionDateStr && cachedDateStr && cachedDateStr < expectedSessionDateStr);
   }
 
+  rolloverUntradedQuotesForSession(sessionDateStr) {
+    if (!sessionDateStr || this._lastRolledSessionDate === sessionDateStr) return;
+    const prevCachedDate = this.getCachedSessionDateStr();
+    if (prevCachedDate >= sessionDateStr && this._lastRolledSessionDate) return;
+    this._lastRolledSessionDate = sessionDateStr;
+
+    for (const [sym, q] of this.quotes.entries()) {
+      if (!q || sym === "NEPSE") continue;
+      if (q.tradeDate === sessionDateStr) continue;
+      const anchorLtp = Number(q.ltp || q.prevClose || 0);
+      if (anchorLtp <= 0) continue;
+      const rolled = {
+        ...q,
+        prevClose: anchorLtp,
+        open: anchorLtp,
+        high: anchorLtp,
+        low: anchorLtp,
+        pointChange: 0,
+        percentageChange: 0,
+        volume: 0,
+        turnover: 0,
+        tradeDate: sessionDateStr
+      };
+      this.quotes.set(sym, rolled);
+    }
+  }
+
   async refreshLiveQuotes(force = false) {
     const now = Date.now();
-    const { isOpen } = this.isMarketOpenNow();
+    const { isOpen, expectedSessionDateStr } = this.isMarketOpenNow();
     const isStaleSession = this.isCacheStaleForLatestSession();
     const shouldSyncQuotes = isOpen || force || isStaleSession;
 
@@ -1057,20 +1095,20 @@ class NepseProvider {
       this.syncNepseIndexQuote();
       return;
     }
-    const minIntervalMs = !isOpen && !isStaleSession && this.quotes.size > 100 ? 3600000 : 12000;
+    const minIntervalMs = !isOpen && !isStaleSession && this.quotes.size > 100 ? 3600000 : 10000;
     if (!force && this.lastScrapedAt > 0 && now - this.lastScrapedAt < minIntervalMs) {
       return;
     }
     if (this._activeRefreshPromise) {
       return Promise.race([
         this._activeRefreshPromise,
-        new Promise((r) => setTimeout(r, 850))
+        new Promise((r) => setTimeout(r, force ? 7500 : 850))
       ]);
     }
     this.lastScrapedAt = now;
 
     const ua = { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" };
-    const fetchWithTimeout = async (urlStr, ms = 1800) => {
+    const fetchWithTimeout = async (urlStr, ms = 8500) => {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), ms);
       try {
@@ -1083,8 +1121,8 @@ class NepseProvider {
     const runBackgroundSync = async () => {
       let meroUpdated = 0;
 
-      // 1. Official Real-Time NEPSE Index (independent fast stream)
-      const idxTask = fetchWithTimeout("https://www.nepalipaisa.com/api/GetIndexLive", 1600)
+      // 1. Official Real-Time NEPSE Index (NepaliPaisa JSON API)
+      const idxTask = fetchWithTimeout("https://www.nepalipaisa.com/api/GetIndexLive", 8500)
         .then(async (idxRes) => {
           if (!idxRes || !idxRes.ok) return;
           const idxJson = await idxRes.json();
@@ -1130,8 +1168,8 @@ class NepseProvider {
         })
         .catch(() => {});
 
-      // 2. Official 13 Sector Sub-Indices (independent fast stream)
-      const subTask = fetchWithTimeout("https://www.nepalipaisa.com/api/GetSubIndexLive", 1600)
+      // 2. Official 13 Sector Sub-Indices (NepaliPaisa JSON API)
+      const subTask = fetchWithTimeout("https://www.nepalipaisa.com/api/GetSubIndexLive", 8500)
         .then(async (subRes) => {
           if (!subRes || !subRes.ok) return;
           const subJson = await subRes.json();
@@ -1150,9 +1188,79 @@ class NepseProvider {
         })
         .catch(() => {});
 
-      // 3. MeroLagani Live Market Quotes
+      // 3. Official Real-Time Stock Quotes JSON Stream (NepaliPaisa GetStockLive)
+      const npStockTask = shouldSyncQuotes
+        ? fetchWithTimeout("https://www.nepalipaisa.com/api/GetStockLive", 8500)
+            .then(async (res) => {
+              if (!res || !res.ok) return;
+              const json = await res.json();
+              const stocks = Array.isArray(json?.result?.stocks) ? json.result.stocks : [];
+              if (stocks.length === 0) return;
+
+              const sampleTradeDate = stocks[0]?.tradeDate || expectedSessionDateStr;
+              if (sampleTradeDate) {
+                this.rolloverUntradedQuotesForSession(sampleTradeDate);
+              }
+
+              let updatedCount = 0;
+              for (const item of stocks) {
+                const sym = String(item.stockSymbol || "").trim().toUpperCase();
+                if (!sym) continue;
+                const ltp = Number(item.closingPrice || 0);
+                if (!(ltp > 0)) continue;
+                const prevClose = Number(item.previousClosing || 0) || ltp;
+                const open = Number(item.openingPrice || 0) || prevClose;
+                const high = Number(item.maxPrice || 0) || ltp;
+                const low = Number(item.minPrice || 0) || ltp;
+                const volume = Math.round(Number(item.volume || 0));
+                const turnover = Number(item.amount || 0) || round2(volume * ltp);
+
+                const existing = this.quotes.get(sym) || {};
+                const sanitized = this.sanitizeAndEnrichQuote({
+                  ...existing,
+                  symbol: sym,
+                  companyName: existing.companyName || item.companyName || sym,
+                  ltp,
+                  open,
+                  high,
+                  low,
+                  prevClose,
+                  volume,
+                  turnover,
+                  source: "MEROLAGANI_LIVE",
+                  updatedAt: new Date().toISOString()
+                });
+                if (sanitized) {
+                  sanitized.tradeDate = item.tradeDate || sampleTradeDate;
+                  this.quotes.set(sym, sanitized);
+                  this.reanchorHistoryToLiveQuote(
+                    sym,
+                    sanitized.ltp,
+                    sanitized.prevClose,
+                    sanitized.high,
+                    sanitized.low,
+                    sanitized.volume,
+                    sanitized.open,
+                    sanitized.turnover
+                  );
+                  updatedCount++;
+                }
+              }
+
+              if (updatedCount > 10) {
+                meroUpdated = Math.max(meroUpdated, updatedCount);
+                this.applyMeroSharePortfolioLocks();
+                this.syncNepseIndexQuote();
+                this.dataSource = "MEROLAGANI_LIVE";
+                this.saveLiveDiskCache();
+              }
+            })
+            .catch(() => {})
+        : Promise.resolve();
+
+      // 4. MeroLagani Live Market Quotes
       const meroTask = cheerio && shouldSyncQuotes
-        ? fetchWithTimeout("https://merolagani.com/LatestMarket.aspx", 1800)
+        ? fetchWithTimeout("https://merolagani.com/LatestMarket.aspx", 8500)
             .then(async (res) => {
               if (!res || !res.ok) return;
               const html = await res.text();
@@ -1198,6 +1306,7 @@ class NepseProvider {
                   });
 
                   if (sanitized) {
+                    sanitized.tradeDate = expectedSessionDateStr;
                     this.quotes.set(sym, sanitized);
                     if (priceChanged) {
                       this.reanchorHistoryToLiveQuote(sym, sanitized.ltp, sanitized.prevClose, sanitized.high, sanitized.low, sanitized.volume, sanitized.open, sanitized.turnover);
@@ -1208,7 +1317,7 @@ class NepseProvider {
               });
 
               if (updatedCount > 10) {
-                meroUpdated = updatedCount;
+                meroUpdated = Math.max(meroUpdated, updatedCount);
                 this.applyMeroSharePortfolioLocks();
                 this.syncNepseIndexQuote();
                 this.dataSource = "MEROLAGANI_LIVE";
@@ -1218,9 +1327,9 @@ class NepseProvider {
             .catch(() => {})
         : Promise.resolve();
 
-      // 4. ShareSansar Official Today Share Price Stream (24-column #headFixed table)
+      // 5. ShareSansar Official Today Share Price Stream (24-column #headFixed table)
       const ssTask = cheerio && shouldSyncQuotes
-        ? fetchWithTimeout("https://www.sharesansar.com/today-share-price", 2200)
+        ? fetchWithTimeout("https://www.sharesansar.com/today-share-price", 8500)
             .then(async (res) => {
               if (!res || !res.ok || meroUpdated > 10) return;
               const html = await res.text();
@@ -1265,6 +1374,7 @@ class NepseProvider {
                     updatedAt: new Date().toISOString()
                   });
                   if (sanitized) {
+                    sanitized.tradeDate = expectedSessionDateStr;
                     this.quotes.set(sym, sanitized);
                     if (priceChanged) {
                       this.reanchorHistoryToLiveQuote(sym, sanitized.ltp, sanitized.prevClose, sanitized.high, sanitized.low, sanitized.volume, sanitized.open, sanitized.turnover);
@@ -1284,11 +1394,10 @@ class NepseProvider {
             .catch(() => {})
         : Promise.resolve();
 
-      await Promise.allSettled([idxTask, subTask, meroTask, ssTask]);
+      await Promise.allSettled([idxTask, subTask, npStockTask, meroTask, ssTask]);
       if (meroUpdated > 5) {
-        const { expectedSessionDateStr, isOpen } = this.isMarketOpenNow();
         if (expectedSessionDateStr && this.getCachedSessionDateStr() < expectedSessionDateStr) {
-          this.marketIndex.asOfDateString = `${expectedSessionDateStr} ${isOpen ? "LIVE" : "3:00:00 PM"}`;
+          this.marketIndex.asOfDateString = `As of Tue, 06 Oct 2026 | ${isOpen ? "LIVE" : "03:00:00 PM"}`;
         }
       }
       this.saveLiveDiskCache();
@@ -1298,10 +1407,9 @@ class NepseProvider {
       this._activeRefreshPromise = null;
     });
 
-    // Bound foreground wait to 850ms max so slow external sites never block the UI response
     await Promise.race([
       this._activeRefreshPromise,
-      new Promise((resolve) => setTimeout(resolve, 850))
+      new Promise((resolve) => setTimeout(resolve, force ? 7500 : 850))
     ]);
   }
 

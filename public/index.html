@@ -7127,12 +7127,32 @@
       }
     }
 
-    loadDashboard(false);
+    function isNepseTradingWindowClient() {
+      const now = new Date();
+      const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+      const npt = new Date(utcMs + (5 * 60 + 45) * 60000);
+      const day = npt.getDay();
+      const mins = npt.getHours() * 60 + npt.getMinutes();
+      return day >= 0 && day <= 4 && mins >= (10 * 60 + 55) && mins <= (15 * 60 + 15);
+    }
+
+    // 1. Instant zero-latency load, followed immediately by live stream sync
+    loadDashboard(false).then(() => {
+      if (window.lastMarketIsOpen || isNepseTradingWindowClient()) {
+        setTimeout(() => loadDashboard(true), 400);
+      }
+    });
+
+    // 2. Automatic real-time polling every 12s during trading window (and 60s off-hours)
+    let _autoPollTick = 0;
     setInterval(() => {
-      if (window.lastMarketIsOpen) {
+      _autoPollTick++;
+      if (window.lastMarketIsOpen || isNepseTradingWindowClient()) {
+        loadDashboard(_autoPollTick % 2 === 0);
+      } else if (_autoPollTick % 5 === 0) {
         loadDashboard(false);
       }
-    }, 10000);
+    }, 12000);
   </script>
 </body>
 </html>
