@@ -1055,9 +1055,18 @@ class NepseProvider {
   }
 
   isCacheStaleForLatestSession() {
-    const { expectedSessionDateStr } = this.isMarketOpenNow();
+    const { expectedSessionDateStr, isTradingDay, hour } = this.isMarketOpenNow();
     const cachedDateStr = this.getCachedSessionDateStr();
-    return Boolean(expectedSessionDateStr && cachedDateStr && cachedDateStr < expectedSessionDateStr);
+    if (expectedSessionDateStr && cachedDateStr && cachedDateStr < expectedSessionDateStr) {
+      return true;
+    }
+    // After 3:00 PM NPT on a trading day, if the cached timestamp is still an intraday tick (e.g. 02:59:32 PM)
+    // rather than the final 03:00:00 PM WACP settlement, treat cache as stale so final EOD prices are fetched!
+    const asOf = String(this.marketIndex?.asOfDateString || "");
+    if (isTradingDay && hour >= 15 && cachedDateStr === expectedSessionDateStr && !asOf.includes("03:00:00 PM")) {
+      return true;
+    }
+    return false;
   }
 
   rolloverUntradedQuotesForSession(sessionDateStr) {
@@ -1099,13 +1108,14 @@ class NepseProvider {
       return;
     }
     const minIntervalMs = !isOpen && !isStaleSession && this.quotes.size > 100 ? 3600000 : 10000;
-    if (!force && this.lastScrapedAt > 0 && now - this.lastScrapedAt < minIntervalMs) {
+    if (!force && !isStaleSession && this.lastScrapedAt > 0 && now - this.lastScrapedAt < minIntervalMs) {
       return;
     }
+    const waitMs = force || isStaleSession || isOpen ? 7500 : 1500;
     if (this._activeRefreshPromise) {
       return Promise.race([
         this._activeRefreshPromise,
-        new Promise((r) => setTimeout(r, force ? 7500 : 850))
+        new Promise((r) => setTimeout(r, waitMs))
       ]);
     }
     this.lastScrapedAt = now;
@@ -1400,7 +1410,7 @@ class NepseProvider {
       await Promise.allSettled([idxTask, subTask, npStockTask, meroTask, ssTask]);
       if (meroUpdated > 5) {
         if (expectedSessionDateStr && this.getCachedSessionDateStr() < expectedSessionDateStr) {
-          this.marketIndex.asOfDateString = `As of Tue, 06 Oct 2026 | ${isOpen ? "LIVE" : "03:00:00 PM"}`;
+          this.marketIndex.asOfDateString = `As of ${expectedSessionDateStr} | ${isOpen ? "LIVE" : "03:00:00 PM"}`;
         }
       }
       this.saveLiveDiskCache();
@@ -1412,7 +1422,7 @@ class NepseProvider {
 
     await Promise.race([
       this._activeRefreshPromise,
-      new Promise((resolve) => setTimeout(resolve, force ? 7500 : 850))
+      new Promise((resolve) => setTimeout(resolve, waitMs))
     ]);
   }
 

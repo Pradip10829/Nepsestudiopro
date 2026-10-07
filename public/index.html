@@ -8068,14 +8068,12 @@
       const npt = new Date(utcMs + (5 * 60 + 45) * 60000);
       const day = npt.getDay();
       const mins = npt.getHours() * 60 + npt.getMinutes();
-      return day >= 0 && day <= 4 && mins >= (10 * 60 + 55) && mins <= (15 * 60 + 15);
+      return day >= 0 && day <= 4 && mins >= (10 * 60 + 55) && mins <= (15 * 60 + 30);
     }
 
-    // 1. Instant zero-latency load, followed immediately by live stream sync
+    // 1. Instant zero-latency load, followed immediately by live stream sync (even post-close to lock in 3:00 PM WACP settlement)
     loadDashboard(false).then(() => {
-      if (window.lastMarketIsOpen || isNepseTradingWindowClient()) {
-        setTimeout(() => loadDashboard(true), 400);
-      }
+      setTimeout(() => loadDashboard(true), 350);
     });
 
     // 2. Automatic real-time polling every 12s during trading window (and 60s off-hours)

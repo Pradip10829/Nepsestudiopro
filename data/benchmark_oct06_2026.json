@@ -1,0 +1,132 @@
+{
+  "recordedAt": "2026-10-06T17:04:12+05:45",
+  "description": "Locked Day-0 Forward Accuracy Benchmark for Tomorrow (Day 1) and 15-Day Swing Horizon (Day 15)",
+  "doubleConfirmedPicks": [
+    {
+      "symbol": "CYCL",
+      "sector": "Microfinance",
+      "day0Ltp": 1535.0,
+      "primaryBuy60Pct": 1535.0,
+      "dipBuy40Pct": 1495.09,
+      "target1": 1751.04,
+      "target2": 1869.35,
+      "stopLoss3pmClose": 1419.88,
+      "quantScore": 89,
+      "swing15Score": 86,
+      "backtestWinRate": 80.0
+    },
+    {
+      "symbol": "ALBSL",
+      "sector": "Microfinance",
+      "day0Ltp": 1187.9,
+      "primaryBuy60Pct": 1187.9,
+      "dipBuy40Pct": 1157.01,
+      "target1": 1336.86,
+      "target2": 1401.03,
+      "stopLoss3pmClose": 1109.23,
+      "quantScore": 83,
+      "swing15Score": 81,
+      "backtestWinRate": 80.0
+    },
+    {
+      "symbol": "SBL",
+      "sector": "Commercial Banks",
+      "day0Ltp": 400.0,
+      "primaryBuy60Pct": 400.0,
+      "dipBuy40Pct": 389.6,
+      "target1": 445.56,
+      "target2": 466.95,
+      "stopLoss3pmClose": 376.14,
+      "quantScore": 90,
+      "swing15Score": 75,
+      "backtestWinRate": 71.43
+    },
+    {
+      "symbol": "SIKLES",
+      "sector": "Hydropower",
+      "day0Ltp": 579.0,
+      "primaryBuy60Pct": 579.0,
+      "dipBuy40Pct": 559.81,
+      "target1": 647.24,
+      "target2": 678.31,
+      "stopLoss3pmClose": 543.15,
+      "quantScore": 85,
+      "swing15Score": 74,
+      "backtestWinRate": 70.0
+    },
+    {
+      "symbol": "MBL",
+      "sector": "Commercial Banks",
+      "day0Ltp": 255.0,
+      "primaryBuy60Pct": 255.0,
+      "dipBuy40Pct": 248.37,
+      "target1": 281.1,
+      "target2": 294.59,
+      "stopLoss3pmClose": 241.47,
+      "quantScore": 81,
+      "swing15Score": 73,
+      "backtestWinRate": 69.23
+    },
+    {
+      "symbol": "ADBL",
+      "sector": "Commercial Banks",
+      "day0Ltp": 309.9,
+      "primaryBuy60Pct": 309.9,
+      "dipBuy40Pct": 301.84,
+      "target1": 339.62,
+      "target2": 355.92,
+      "stopLoss3pmClose": 294.6,
+      "quantScore": 86,
+      "swing15Score": 72,
+      "backtestWinRate": 60.0
+    }
+  ],
+  "top5Swing15OnlyPicks": [
+    {
+      "symbol": "API",
+      "sector": "Hydropower",
+      "day0Ltp": 335.8,
+      "dipBuyZone": 330.9,
+      "target1": 368.1,
+      "target2": 385.1,
+      "stopLoss3pmClose": 317.8,
+      "swing15Score": 77,
+      "backtestWinRate": 75.0
+    },
+    {
+      "symbol": "HDL",
+      "sector": "Manufacturing & Processing",
+      "day0Ltp": 1271.0,
+      "dipBuyZone": 1261.0,
+      "target1": 1398.0,
+      "target2": 1465.0,
+      "stopLoss3pmClose": 1202.0,
+      "swing15Score": 77,
+      "backtestWinRate": 63.64
+    },
+    {
+      "symbol": "USHEC",
+      "sector": "Hydropower",
+      "day0Ltp": 499.8,
+      "dipBuyZone": 490.0,
+      "target1": 548.0,
+      "target2": 574.0,
+      "stopLoss3pmClose": 472.0,
+      "swing15Score": 76,
+      "backtestWinRate": 75.0
+    }
+  ],
+  "all11ImmediateBuy": [
+    { "rank": 1, "symbol": "SLBBL", "day0Ltp": 828.0, "dipBuy": 806.47, "t1": 913.51, "stopLoss": 783.63 },
+    { "rank": 2, "symbol": "SBL", "day0Ltp": 400.0, "dipBuy": 389.6, "t1": 445.56, "stopLoss": 376.14 },
+    { "rank": 3, "symbol": "CYCL", "day0Ltp": 1535.0, "dipBuy": 1495.09, "t1": 1751.04, "stopLoss": 1419.88 },
+    { "rank": 4, "symbol": "ADBL", "day0Ltp": 309.9, "dipBuy": 301.84, "t1": 339.62, "stopLoss": 294.6 },
+    { "rank": 5, "symbol": "ILI", "day0Ltp": 426.5, "dipBuy": 415.41, "t1": 468.28, "stopLoss": 404.94 },
+    { "rank": 6, "symbol": "SIKLES", "day0Ltp": 579.0, "dipBuy": 559.81, "t1": 647.24, "stopLoss": 543.15 },
+    { "rank": 7, "symbol": "NMFBS", "day0Ltp": 1179.0, "dipBuy": 1148.35, "t1": 1300.22, "stopLoss": 1116.13 },
+    { "rank": 8, "symbol": "ALBSL", "day0Ltp": 1187.9, "dipBuy": 1157.01, "t1": 1336.86, "stopLoss": 1109.23 },
+    { "rank": 9, "symbol": "MBL", "day0Ltp": 255.0, "dipBuy": 248.37, "t1": 281.1, "stopLoss": 241.47 },
+    { "rank": 10, "symbol": "BNT", "day0Ltp": 11995.0, "dipBuy": 11683.13, "t1": 13321.76, "stopLoss": 11301.97 },
+    { "rank": 11, "symbol": "SCB", "day0Ltp": 663.0, "dipBuy": 645.76, "t1": 736.6, "stopLoss": 624.54 }
+  ]
+}
