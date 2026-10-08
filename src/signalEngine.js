@@ -3834,6 +3834,101 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     maxRiskPct: exactStopLossPct
   };
 
+  // Multi-Week Structural Swing Trading Engine (2–6 Weeks / 15–30+ Trading Days • T+2 Safe • No Intraday Noise)
+  const high52wRef = Number(quote.high52w || currentPrice * 1.18);
+  const roomTo52wHighPct = round2(Math.max(0, ((high52wRef - currentPrice) / currentPrice) * 100));
+  const totalDeclaredDiv = round2(Number(quote.bonusDividend || 0) + Number(quote.cashDividend || 0));
+  const avg5YrDivVal = Number(quote.divHistory5YrAvg || 0);
+  const swTranche1Buy = round2(Math.min(currentPrice, exactBuyPrice * 1.005));
+  const swTranche2Buy = round2(
+    Math.max(
+      exactBackupDipPrice,
+      sma50 > 0 && sma50 < currentPrice * 0.99 ? sma50 : currentPrice * 0.968
+    )
+  );
+  // Wider Structural Swing Stop-Loss (4.5% to 6.2% below 20D/50D SMA support so 1-day NEPSE noise never whipsaws out)
+  const swStructuralStop = round2(
+    Math.max(
+      currentPrice * 0.935,
+      Math.min(
+        exactStopLossPrice,
+        sma50 > 0 && sma50 < currentPrice ? sma50 * 0.978 : currentPrice * 0.952,
+        currentPrice * 0.954
+      )
+    )
+  );
+  const swStructuralStopPct = round2(((currentPrice - swStructuralStop) / currentPrice) * 100);
+  const swTarget1Scale50 = round2(Math.max(exactSellTarget1, currentPrice * 1.062));
+  const swTarget1GainPct = round2(((swTarget1Scale50 - currentPrice) / currentPrice) * 100);
+  const swTarget2Wave50 = round2(
+    Math.max(
+      exactSellTarget2,
+      swTarget1Scale50 * 1.055,
+      Math.min(high52wRef > currentPrice * 1.08 ? high52wRef : currentPrice * 1.15, currentPrice * 1.24)
+    )
+  );
+  const swTarget2GainPct = round2(((swTarget2Wave50 - currentPrice) / currentPrice) * 100);
+
+  const isSwingTrade = Boolean(
+    !isImmediateSell &&
+      proNewsSafetyPassed &&
+      proLiquidityPassed &&
+      rsi14 >= 38 &&
+      rsi14 <= 67 &&
+      quantScore >= 60 &&
+      sw15_btWin >= 52 &&
+      swTarget2GainPct >= 9.5 &&
+      (supertrend.direction === "BULLISH" ||
+        currentPrice >= sma50 * 0.985 ||
+        (newsCat.hasBullishCatalyst && currentPrice >= ema20 * 0.975)) &&
+      (sw15_fEps >= 8 || sw15_fRoe >= 8 || avg5YrDivVal >= 10)
+  );
+
+  const swingTradeScore = Math.min(
+    99,
+    Math.max(
+      18,
+      Math.round(
+        swing15Score * 0.58 +
+          Math.min(18, roomTo52wHighPct * 0.75) +
+          (newsCat.hasBullishCatalyst ? (newsCat.directCount > 0 ? 9 : 5) : 0) +
+          (avg5YrDivVal >= 13 || totalDeclaredDiv >= 10 ? 7 : 3) +
+          (sw15_btWin >= 65 ? 8 : sw15_btWin >= 55 ? 4 : 0)
+      )
+    )
+  );
+
+  const swingTradeStyle =
+    isImmediateBuy && vcpTightnessPassed
+      ? "⚡ VCP Breakout Swing (2–4 Wks)"
+      : newsCat.directCount > 0 || totalDeclaredDiv >= 10
+        ? "🎁 Dividend / News Wave (3–6 Wks)"
+        : "🌊 Stage-2 Pullback Swing (2–5 Wks)";
+
+  const swingTrade = {
+    isSwingTrade,
+    swingTradeScore,
+    swingTradeStyle,
+    proTraderGrade,
+    horizonLabel: "2–6 Weeks (15–30 Trading Days • T+2 Safe)",
+    tranche1Buy: swTranche1Buy,
+    tranche2Buy: swTranche2Buy,
+    buyZoneText: `Rs ${swTranche2Buy} – ${swTranche1Buy}`,
+    structuralStopLoss: swStructuralStop,
+    structuralStopPct: swStructuralStopPct,
+    target1Scale50: swTarget1Scale50,
+    target1GainPct: swTarget1GainPct,
+    target2Wave50: swTarget2Wave50,
+    target2GainPct: swTarget2GainPct,
+    high52w: high52wRef,
+    roomTo52wHighPct,
+    btWinRate: sw15_btWin,
+    avg5YrDiv: avg5YrDivVal,
+    totalDeclaredDiv,
+    newsSentiment: newsCat.sentiment,
+    newsHeadline: newsCat.topHeadline
+  };
+
   return {
     symbol: quote.symbol,
     companyName: quote.companyName,
@@ -3881,6 +3976,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     exactExecution,
     masterConsensus,
     swing15Day,
+    swingTrade,
     simpleAdvisor,
     longTerm,
     sectorChampion,
