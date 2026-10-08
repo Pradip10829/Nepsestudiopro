@@ -2369,6 +2369,19 @@
               <div class="card-body" id="weeklyTradingBody" style="padding:12px 16px;"></div>
             </div>
 
+            <!-- PANEL B3-SWING: 10-FACTOR INSTITUTIONAL SWING TRADING BLUEPRINT (2–6 WEEKS • 9 REQUIRED FIELDS) -->
+            <div class="card" id="swing10FactorSection" style="border:1.5px solid rgba(56,189,248,0.52); background:linear-gradient(135deg, rgba(16,185,129,0.08), rgba(56,189,248,0.06));">
+              <div class="card-header" style="padding:11px 16px; flex-wrap:wrap; gap:8px;">
+                <div class="card-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span>🌊 10-Factor Swing Trading Blueprint (Structure → 20/50 EMA → Fib/OB → ATR → R:R)</span>
+                  <span class="badge badge-green" id="swing10GradeBadge">Setup Grade: --</span>
+                  <span class="badge badge-neutral mono" id="swing10ScoreBadge">Swing Score: --/100</span>
+                </div>
+                <span class="mono text-muted" id="swing10SummaryBadge" style="font-size:11px;">Entry • Stop Loss (ATR+Structure) • T1 / T2 / T3 • R (≥1:2) • Reason • Invalidation</span>
+              </div>
+              <div class="card-body" id="swing10FactorBody" style="padding:12px 16px;"></div>
+            </div>
+
             <!-- PANEL B4: END-OF-DAY (EOD) SUMMARY, DATA ACCURACY AUDIT, WHY STOCKS WENT UP/DOWN & STOCKS OF THE DAY -->
             <div class="card" id="eodSummarySection" style="border:1.5px solid var(--green-border-strong); background:linear-gradient(145deg, var(--bg-card), var(--bg-subtle));">
               <div class="card-header" style="padding:11px 16px; flex-wrap:wrap; gap:8px; background:var(--green-soft); border-bottom:1px solid var(--green-border);">
@@ -4092,49 +4105,69 @@
       banner.style.display = 'block';
 
       if (activeCategory === 'SWING_TRADE') {
-        const top8 = rows.slice(0, 8);
-        const swingRowsHtml = top8.map((s, idx) => {
+        const top10 = rows.slice(0, 10);
+        const swingRowsHtml = top10.map((s, idx) => {
           const st = s.swingTrade || {};
           const scoreSw = getSwingTradeScore(s);
           const ltp = Number(s.ltp || 0);
           const ex = s.exactExecution || {};
-          const t1Buy = st.tranche1Buy || ex.exactBuyPrice || ltp;
-          const t2Buy = st.tranche2Buy || ex.exactBackupDipPrice || Math.round(ltp * 0.968);
-          const sl = st.structuralStopLoss || Math.round(ltp * 0.948);
-          const slPct = st.structuralStopPct || (ltp > 0 ? (((ltp - sl) / ltp) * 100).toFixed(1) : '5.2');
-          const tgt1 = st.target1Scale50 || ex.exactSellTarget1 || Math.round(ltp * 1.065);
-          const tgt2 = st.target2Wave50 || ex.exactSellTarget2 || Math.round(ltp * 1.15);
-          const t1Pct = ltp > 0 ? (((tgt1 - ltp) / ltp) * 100).toFixed(1) : '6.5';
-          const t2Pct = ltp > 0 ? (((tgt2 - ltp) / ltp) * 100).toFixed(1) : '15.0';
-          const winRate = fmtNum(s.backtest?.winRate, 1);
-          const div5Y = fmtNum(s.fundamentals?.divHistory5YrAvg ?? s.fundamentals?.avg5YrDiv ?? 0, 1);
-          const styleTag = st.swingTradeStyle || '🌊 Multi-Week Swing (2–6 Wks)';
-          const newsHead = st.newsHeadline || s.newsCatalyst?.topHeadline || '';
-          const newsSent = st.newsSentiment || s.newsCatalyst?.sentiment || '';
-          const newsLineHtml = newsHead
-            ? `<div style="font-size:10px; color:${String(newsSent).includes('BULLISH') ? 'var(--green-main)' : 'var(--text-secondary)'}; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:340px;" title="${newsHead.replace(/"/g, '&quot;')}">📰 ${newsHead}</div>`
-            : '';
+          const entryP = st.entry || st.tranche1Buy || ex.exactBuyPrice || ltp;
+          const dipP = st.tranche2Buy || ex.exactBackupDipPrice || Math.round(ltp * 0.968);
+          const sl = st.stopLoss || st.structuralStopLoss || Math.round(ltp * 0.948);
+          const slPct = st.structuralStopPct || (entryP > 0 ? (((entryP - sl) / entryP) * 100).toFixed(1) : '5.2');
+          const tgt1 = st.target1 || st.target1Scale50 || ex.exactSellTarget1 || Math.round(ltp * 1.065);
+          const tgt2 = st.target2 || st.target2Wave50 || ex.exactSellTarget2 || Math.round(ltp * 1.14);
+          const tgt3 = st.target3 || Math.round(ltp * 1.21);
+          const t1Pct = st.target1GainPct || (entryP > 0 ? (((tgt1 - entryP) / entryP) * 100).toFixed(1) : '6.5');
+          const t2Pct = st.target2GainPct || (entryP > 0 ? (((tgt2 - entryP) / entryP) * 100).toFixed(1) : '14.0');
+          const t3Pct = st.target3GainPct || (entryP > 0 ? (((tgt3 - entryP) / entryP) * 100).toFixed(1) : '21.0');
+          const rT2 = st.rRatio || (entryP > sl ? ((tgt2 - entryP) / (entryP - sl)).toFixed(2) : '2.20');
+          const rT3 = st.rRatioTarget3 || (entryP > sl ? ((tgt3 - entryP) / (entryP - sl)).toFixed(2) : '3.25');
+          const gradeTxt = st.setupGrade || 'A (STRONG SWING SETUP)';
+          const facCount = st.factorsPassedCount ?? 8;
+          const reasonTxt = st.reason || `${st.marketStructure || 'Bullish HH+HL'} → Price > 20 EMA > 50 EMA → Fib 50–61.8% + Bullish OB → RSI > 50 & Vol Confirmed`;
+          const invTxt = st.invalidation || `Daily 3:00 PM close < Rs ${fmtNum(sl, 1)} (breaks HL & OB floor + ATR-14 buffer)`;
           return `<tr style="border-bottom:1px solid var(--border-subtle); cursor:pointer;" onclick="selectStock('${s.symbol}', true)">
-            <td style="padding:8px 10px;">
-              <div style="display:flex; align-items:center; gap:7px;">
-                <span class="badge badge-green" style="font-size:10px;">#${idx + 1}</span>
-                <div style="min-width:0;">
-                  <div style="font-weight:800; font-size:13px; color:var(--text-main);">${s.symbol} <span style="font-size:10px; color:#38bdf8; font-weight:700;">(${styleTag})</span></div>
-                  <div style="font-size:10.5px; color:var(--text-secondary);">${s.companyName || s.name || s.symbol} • ${s.sector}</div>
-                  ${newsLineHtml}
+            <td style="padding:8px 10px; vertical-align:top;">
+              <div style="display:flex; align-items:flex-start; gap:7px;">
+                <span class="badge badge-green" style="font-size:10px; margin-top:2px;">#${idx + 1}</span>
+                <div style="min-width:130px;">
+                  <div style="font-weight:800; font-size:13px; color:var(--text-main);">${s.symbol} <span class="mono text-muted" style="font-size:11px;">(LTP Rs ${fmtNum(ltp, 1)})</span></div>
+                  <div style="font-size:10px; color:var(--green-main); font-weight:800; margin-top:1px;">${gradeTxt} • ${scoreSw}/100 (${facCount}/10)</div>
+                  <div style="font-size:10px; color:var(--text-secondary);">${s.sector}</div>
                 </div>
               </div>
             </td>
-            <td class="right mono fw-700" style="padding:8px 10px;">Rs ${fmtNum(ltp, 1)}</td>
-            <td class="right mono fw-800 text-green" style="padding:8px 10px;">${scoreSw}/100</td>
-            <td class="right mono" style="padding:8px 10px; color:#38bdf8; font-weight:700;">
-              <div>T1 (50%): Rs ${fmtNum(t1Buy, 1)}</div>
-              <div style="font-size:10px; color:var(--text-secondary);">T2 (50% Dip): Rs ${fmtNum(t2Buy, 1)}</div>
+            <td class="right mono" style="padding:8px 9px; color:#38bdf8; font-weight:800; vertical-align:top; white-space:nowrap;">
+              <div>Rs ${fmtNum(entryP, 1)}</div>
+              <div style="font-size:9.5px; color:var(--text-secondary);">OB/Fib Dip: Rs ${fmtNum(dipP, 1)}</div>
             </td>
-            <td class="right mono text-green fw-700" style="padding:8px 10px;">Rs ${fmtNum(tgt1, 0)} (+${t1Pct}%)</td>
-            <td class="right mono text-green fw-800" style="padding:8px 10px;">Rs ${fmtNum(tgt2, 0)} (+${t2Pct}%)</td>
-            <td class="right mono text-red fw-700" style="padding:8px 10px;">Rs ${fmtNum(sl, 0)} (-${slPct}%)</td>
-            <td class="right mono" style="padding:8px 10px; font-size:11px;">${winRate}% Win • ${div5Y}% Div</td>
+            <td class="right mono text-red fw-800" style="padding:8px 9px; vertical-align:top; white-space:nowrap;">
+              <div>Rs ${fmtNum(sl, 1)}</div>
+              <div style="font-size:9.5px; color:var(--text-secondary);">-${slPct}% (ATR+HL)</div>
+            </td>
+            <td class="right mono text-green fw-700" style="padding:8px 9px; vertical-align:top; white-space:nowrap;">
+              <div>Rs ${fmtNum(tgt1, 0)}</div>
+              <div style="font-size:9.5px; color:var(--text-secondary);">+${t1Pct}% (PSH/R1)</div>
+            </td>
+            <td class="right mono text-green fw-800" style="padding:8px 9px; vertical-align:top; white-space:nowrap;">
+              <div>Rs ${fmtNum(tgt2, 0)}</div>
+              <div style="font-size:9.5px; color:var(--text-secondary);">+${t2Pct}% (Supply/R2)</div>
+            </td>
+            <td class="right mono text-green fw-800" style="padding:8px 9px; vertical-align:top; white-space:nowrap;">
+              <div>Rs ${fmtNum(tgt3, 0)}</div>
+              <div style="font-size:9.5px; color:var(--text-secondary);">+${t3Pct}% (52W/Ext)</div>
+            </td>
+            <td class="right mono fw-800" style="padding:8px 9px; color:#fbbf24; vertical-align:top; white-space:nowrap;">
+              <div>1 : ${rT2}</div>
+              <div style="font-size:9.5px; color:var(--green-main);">T3: 1 : ${rT3}</div>
+            </td>
+            <td style="padding:8px 10px; font-size:10.5px; color:var(--text-main); line-height:1.38; max-width:290px; vertical-align:top;">
+              ${reasonTxt}
+            </td>
+            <td style="padding:8px 10px; font-size:10.5px; color:var(--red-main); line-height:1.38; max-width:220px; vertical-align:top;">
+              ${invTxt}
+            </td>
           </tr>`;
         }).join('');
 
@@ -4142,11 +4175,11 @@
           <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
             <div>
               <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                <span class="badge badge-green" style="font-size:11px; padding:3px 9px; background:rgba(56,189,248,0.18); color:#38bdf8; border:1px solid rgba(56,189,248,0.45);">🌊 SWING TRADING CATEGORY (2–6 WEEKS • NO DAY TRADING)</span>
-                <span style="font-weight:800; font-size:15px; color:var(--text-main);">Top ${top8.length} Multi-Week Structural Swing Setups (${rows.length} Total Qualified)</span>
+                <span class="badge badge-green" style="font-size:11px; padding:3px 9px; background:rgba(56,189,248,0.18); color:#38bdf8; border:1px solid rgba(56,189,248,0.45);">🌊 10-FACTOR SWING TRADING ENGINE (2–6 WEEKS)</span>
+                <span style="font-weight:800; font-size:15px; color:var(--text-main);">Top ${top10.length} Multi-Factor Swing Setups (${rows.length} Total Qualified)</span>
               </div>
               <div style="font-size:11.5px; color:var(--text-secondary); margin-top:3px;">
-                Built specifically for <strong>NEPSE T+2 Settlement &amp; Multi-Week Waves (15–30+ Trading Days)</strong>: Wider structural stop-losses below 20D/50D SMA so 1-day dips never shake you out, 50/50 2-tranche scaling, and live dividend/news catalysts.
+                <strong>8-Step Best Swing Combination Funnel:</strong> 1. Market Structure (<code>BOS / HH + HL</code>) → 2. <code>Price &gt; 20 EMA &gt; 50 EMA</code> → 3. Support &amp; Fib (<code>50%–78.6% OTE</code>) → 4. Liquidity Sweep (<code>SSL</code>) → 5. Bullish Order Block (<code>OB</code>) → 6. Volume + <code>RSI &gt; 50</code> → 7. <code>ATR(14)</code> + Structure Stop → 8. Risk/Reward <code>R ≥ 1:2 (1:3+ T3)</code>.
               </div>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
@@ -4158,26 +4191,21 @@
             <table style="width:100%; border-collapse:collapse; font-size:12px;">
               <thead>
                 <tr style="border-bottom:1px solid var(--border-subtle); background:rgba(15,23,42,0.9); color:var(--text-secondary); font-size:10.5px; text-transform:uppercase;">
-                  <th style="text-align:left; padding:7px 10px;">Rank, Stock &amp; Swing Style</th>
-                  <th class="right" style="padding:7px 10px;">LTP</th>
-                  <th class="right" style="padding:7px 10px;">Swing Score</th>
-                  <th class="right" style="padding:7px 10px;">2-Tranche Buy Zone (50%/50%)</th>
-                  <th class="right" style="padding:7px 10px;">Target 1 (15D • Sell 50%)</th>
-                  <th class="right" style="padding:7px 10px;">Target 2 (30–45D Wave • 50%)</th>
-                  <th class="right" style="padding:7px 10px;">Structural EOD Stop (20D/50D)</th>
-                  <th class="right" style="padding:7px 10px;">180D Win / 5Y Div</th>
+                  <th style="text-align:left; padding:7px 10px;">Stock &amp; Setup Grade</th>
+                  <th class="right" style="padding:7px 9px;">Entry</th>
+                  <th class="right" style="padding:7px 9px;">Stop Loss</th>
+                  <th class="right" style="padding:7px 9px;">Target 1</th>
+                  <th class="right" style="padding:7px 9px;">Target 2</th>
+                  <th class="right" style="padding:7px 9px;">Target 3</th>
+                  <th class="right" style="padding:7px 9px;">R (R:R)</th>
+                  <th style="text-align:left; padding:7px 10px;">Reason (10-Factor Confluence)</th>
+                  <th style="text-align:left; padding:7px 10px;">Invalidation</th>
                 </tr>
               </thead>
               <tbody>
-                ${swingRowsHtml || '<tr><td colspan="8" style="text-align:center; padding:14px;">No Swing Trading candidates match current sector/search filter.</td></tr>'}
+                ${swingRowsHtml || '<tr><td colspan="9" style="text-align:center; padding:14px;">No Swing Trading candidates match current sector/search filter.</td></tr>'}
               </tbody>
             </table>
-          </div>
-          <div style="margin-top:9px; display:flex; flex-wrap:wrap; gap:8px; font-size:11px; color:var(--text-secondary);">
-            <span style="background:rgba(16,185,129,0.12); color:var(--green-main); padding:3px 8px; border-radius:5px; font-weight:700;">Why Not Day Trade: T+2 Demat Lock + 1.2% Fee/CGT Hurdle</span>
-            <span style="background:rgba(56,189,248,0.12); color:#38bdf8; padding:3px 8px; border-radius:5px; font-weight:700;">Tranche Rule: Buy 50% in Zone 1 + 50% on Dip/Breakout</span>
-            <span style="background:rgba(245,158,11,0.12); color:#fbbf24; padding:3px 8px; border-radius:5px; font-weight:700;">Scale-Out Rule: Sell 50% at T1 (+6–8%) &amp; Trail Remaining 50% to T2 (+12–22%)</span>
-            <span style="background:rgba(244,63,94,0.12); color:var(--red-main); padding:3px 8px; border-radius:5px; font-weight:700;">No Whipsaw Stop: Only Exit on 3:00 PM EOD Close Below Structural Stop</span>
           </div>
         `;
         return;
@@ -5233,6 +5261,101 @@
             <div><strong style="color:var(--text-main);">📅 Sun–Thu Weekly Action Plan:</strong> ${wPlan.weeklyActionSummary || ''}</div>
             <div><strong style="color:var(--accent-blue);">🕒 Thursday 2:45 PM Weekend Hold vs. Profit-Booking Rule:</strong> ${wPlan.thursdayHoldRule || ''}</div>
           </div>
+        `;
+      }
+
+      // Render 10-Factor Institutional Swing Trading Blueprint (9 Required Fields + 10-Factor Checklist)
+      const sw10BodyEl = document.getElementById('swing10FactorBody');
+      const sw10GradeEl = document.getElementById('swing10GradeBadge');
+      const sw10ScoreEl = document.getElementById('swing10ScoreBadge');
+      const sw10SumEl = document.getElementById('swing10SummaryBadge');
+      if (sw10BodyEl) {
+        const st = s.swingTrade || {};
+        const ltp = Number(s.ltp || 0);
+        const entryP = st.entry || st.tranche1Buy || s.exactExecution?.exactBuyPrice || ltp;
+        const dipP = st.tranche2Buy || s.exactExecution?.exactBackupDipPrice || Math.round(ltp * 0.968);
+        const sl = st.stopLoss || st.structuralStopLoss || Math.round(ltp * 0.948);
+        const slPct = st.structuralStopPct || (entryP > 0 ? (((entryP - sl) / entryP) * 100).toFixed(1) : '5.2');
+        const tgt1 = st.target1 || st.target1Scale50 || Math.round(ltp * 1.065);
+        const tgt2 = st.target2 || st.target2Wave50 || Math.round(ltp * 1.14);
+        const tgt3 = st.target3 || Math.round(ltp * 1.21);
+        const t1Pct = st.target1GainPct || (entryP > 0 ? (((tgt1 - entryP) / entryP) * 100).toFixed(1) : '6.5');
+        const t2Pct = st.target2GainPct || (entryP > 0 ? (((tgt2 - entryP) / entryP) * 100).toFixed(1) : '14.0');
+        const t3Pct = st.target3GainPct || (entryP > 0 ? (((tgt3 - entryP) / entryP) * 100).toFixed(1) : '21.0');
+        const rT2 = st.rRatio || (entryP > sl ? ((tgt2 - entryP) / (entryP - sl)).toFixed(2) : '2.20');
+        const rT3 = st.rRatioTarget3 || (entryP > sl ? ((tgt3 - entryP) / (entryP - sl)).toFixed(2) : '3.25');
+        const gradeTxt = st.setupGrade || 'B (WAIT FOR PULLBACK)';
+        const scoreSw = getSwingTradeScore(s);
+        const facCount = st.factorsPassedCount ?? 7;
+        const isQualified = Boolean(st.isSwingTrade);
+        const reasonTxt = st.reason || `${st.marketStructure || 'Bullish HH+HL'} → Price > 20 EMA > 50 EMA → Fib 50–61.8% + Bullish OB → RSI > 50 & Vol Confirmed`;
+        const invTxt = st.invalidation || `Daily 3:00 PM close < Rs ${fmtNum(sl, 1)} (breaks Higher Low & Bullish OB floor + ATR-14 buffer)`;
+
+        if (sw10GradeEl) {
+          sw10GradeEl.textContent = `Setup Grade: ${gradeTxt}`;
+          sw10GradeEl.className = `badge ${isQualified ? 'badge-green' : gradeTxt.startsWith('B') ? 'badge-neutral' : 'badge-red'}`;
+        }
+        if (sw10ScoreEl) {
+          sw10ScoreEl.textContent = `Swing Score: ${scoreSw}/100 (${facCount}/10 Factors)`;
+        }
+        if (sw10SumEl) {
+          sw10SumEl.textContent = `${st.swingTradeStyle || 'Multi-Week Swing'} • R = 1:${rT2} (T2) / 1:${rT3} (T3)`;
+        }
+
+        const factorsList = Array.isArray(st.factors10) ? st.factors10 : [];
+        const factorsGridHtml = factorsList.map(f => `
+          <div style="padding:7px 10px; border-radius:7px; background:var(--bg-elevated); border:1px solid ${f.passed ? 'rgba(16,185,129,0.35)' : 'var(--border)'}; display:flex; flex-direction:column; gap:2px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+              <span style="font-size:10.5px; font-weight:800; color:var(--text-main);">${f.name}</span>
+              <span class="badge ${f.passed ? 'badge-green' : 'badge-red-soft'}" style="font-size:9px; padding:1px 6px;">${f.passed ? '✔ ALIGNED' : '✖ WAIT'}</span>
+            </div>
+            <div class="mono" style="font-size:10px; color:var(--text-secondary); line-height:1.35;">${f.detail}</div>
+          </div>
+        `).join('');
+
+        sw10BodyEl.innerHTML = `
+          <!-- 9 REQUIRED SWING SETUP FIELDS -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:9px; margin-bottom:10px;">
+            <div style="background:var(--bg-elevated); border:1px solid rgba(56,189,248,0.45); border-left:4px solid #38bdf8; border-radius:9px; padding:9px 11px;">
+              <div style="font-size:9.5px; font-weight:800; color:#38bdf8; text-transform:uppercase;">1. ENTRY</div>
+              <div class="mono fw-800" style="font-size:15px; color:var(--text-main); margin:2px 0;">Rs ${fmtNum(entryP, 1)}</div>
+              <div style="font-size:10.5px; color:var(--text-secondary);">OB/Fib Dip Zone: <strong>Rs ${fmtNum(dipP, 1)}</strong></div>
+            </div>
+            <div style="background:var(--bg-elevated); border:1px solid var(--red-border); border-left:4px solid var(--red-main); border-radius:9px; padding:9px 11px;">
+              <div style="font-size:9.5px; font-weight:800; color:var(--red-main); text-transform:uppercase;">2. STOP LOSS (ATR + HL)</div>
+              <div class="mono fw-800 text-red" style="font-size:15px; margin:2px 0;">Rs ${fmtNum(sl, 1)} (-${slPct}%)</div>
+              <div style="font-size:10.5px; color:var(--text-secondary);">ATR(14): <strong>Rs ${fmtNum(st.atr14 || ind.atr14, 1)}</strong> • HL: Rs ${fmtNum(st.pslPrice, 1)}</div>
+            </div>
+            <div style="background:var(--bg-elevated); border:1px solid var(--green-border); border-left:4px solid var(--green-main); border-radius:9px; padding:9px 11px;">
+              <div style="font-size:9.5px; font-weight:800; color:var(--green-main); text-transform:uppercase;">3. TARGET 1 (PSH / R1)</div>
+              <div class="mono fw-800 text-green" style="font-size:15px; margin:2px 0;">Rs ${fmtNum(tgt1, 0)} (+${t1Pct}%)</div>
+              <div style="font-size:10.5px; color:var(--text-secondary);">Prev Swing High: <strong>Rs ${fmtNum(st.pshPrice, 1)}</strong></div>
+            </div>
+            <div style="background:var(--bg-elevated); border:1px solid var(--green-border); border-left:4px solid var(--green-main); border-radius:9px; padding:9px 11px;">
+              <div style="font-size:9.5px; font-weight:800; color:var(--green-main); text-transform:uppercase;">4. TARGET 2 (PRIMARY ≥1:2R)</div>
+              <div class="mono fw-800 text-green" style="font-size:15px; margin:2px 0;">Rs ${fmtNum(tgt2, 0)} (+${t2Pct}%)</div>
+              <div style="font-size:10.5px; color:var(--text-secondary);">Major Resistance / Supply OB</div>
+            </div>
+            <div style="background:var(--bg-elevated); border:1px solid var(--green-border); border-left:4px solid var(--green-main); border-radius:9px; padding:9px 11px;">
+              <div style="font-size:9.5px; font-weight:800; color:var(--green-main); text-transform:uppercase;">5. TARGET 3 (RUNNER 1:3R+)</div>
+              <div class="mono fw-800 text-green" style="font-size:15px; margin:2px 0;">Rs ${fmtNum(tgt3, 0)} (+${t3Pct}%)</div>
+              <div style="font-size:10.5px; color:var(--text-secondary);">52W High / Swing Extension</div>
+            </div>
+            <div style="background:var(--bg-elevated); border:1px solid rgba(251,191,36,0.45); border-left:4px solid #fbbf24; border-radius:9px; padding:9px 11px;">
+              <div style="font-size:9.5px; font-weight:800; color:#fbbf24; text-transform:uppercase;">6. R (RISK / REWARD) &amp; 7. GRADE</div>
+              <div class="mono fw-800" style="font-size:14.5px; color:#fbbf24; margin:2px 0;">1 : ${rT2} <span style="font-size:11px; color:var(--green-main);">(T3: 1:${rT3})</span></div>
+              <div style="font-size:10.5px; font-weight:800; color:var(--text-main);">${gradeTxt}</div>
+            </div>
+          </div>
+
+          <!-- 8. REASON & 9. INVALIDATION -->
+          <div style="padding:9px 13px; background:var(--bg-elevated); border:1px solid var(--border-strong); border-left:4px solid ${isQualified ? 'var(--green-main)' : 'var(--amber-main)'}; border-radius:8px; font-size:11.5px; display:flex; flex-direction:column; gap:5px; margin-bottom:10px;">
+            <div><strong style="color:var(--green-main);">8. Swing Setup Reason (Confluence Chain):</strong> <span style="color:var(--text-main);">${reasonTxt}</span></div>
+            <div><strong style="color:var(--red-main);">9. Setup Invalidation (Exit Trigger):</strong> <span style="color:var(--text-secondary);">${invTxt}</span></div>
+          </div>
+
+          <!-- 10-FACTOR INSTITUTIONAL SWING CHECKLIST -->
+          ${factorsGridHtml ? `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(235px, 1fr)); gap:7px;">${factorsGridHtml}</div>` : ''}
         `;
       }
 

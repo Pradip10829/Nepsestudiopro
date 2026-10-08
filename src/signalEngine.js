@@ -1497,6 +1497,8 @@ function detectSmartMoneyConcepts(bars, sr, atr14) {
     structureDesc,
     lastSwingHigh: lastSH,
     lastSwingLow: lastSL,
+    prevSwingHigh: prevSH,
+    prevSwingLow: prevSL,
     bullishOB,
     bearishOB,
     breakerBlock,
@@ -3834,99 +3836,359 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     maxRiskPct: exactStopLossPct
   };
 
-  // Multi-Week Structural Swing Trading Engine (2–6 Weeks / 15–30+ Trading Days • T+2 Safe • No Intraday Noise)
+  // =========================================================================
+  // 10-FACTOR INSTITUTIONAL SWING TRADING ENGINE (2–6 WEEKS • T+2 SAFE)
+  // Priority #1: Market Structure (HH, HL, LH, LL, BOS, CHoCH) ->
+  // 20 EMA -> 50 EMA -> Support/Resistance -> Volume -> RSI 14 ->
+  // Fibonacci (38.2/50/61.8/78.6%) -> ATR 14 Stop -> Risk/Reward (R >= 1:2) ->
+  // Liquidity Sweep + Bullish Order Block
+  // =========================================================================
+  const ema50Arr = calcEMASeries(closes, 50);
+  const ema50 = round2(ema50Arr[ema50Arr.length - 1] || sma50 || currentPrice);
   const high52wRef = Number(quote.high52w || currentPrice * 1.18);
   const roomTo52wHighPct = round2(Math.max(0, ((high52wRef - currentPrice) / currentPrice) * 100));
   const totalDeclaredDiv = round2(Number(quote.bonusDividend || 0) + Number(quote.cashDividend || 0));
   const avg5YrDivVal = Number(quote.divHistory5YrAvg || 0);
-  const swTranche1Buy = round2(Math.min(currentPrice, exactBuyPrice * 1.005));
-  const swTranche2Buy = round2(
+
+  // 1. Market Structure (Priority #1: HH, HL, LH, LL, BOS, CHoCH)
+  const pshPrice = round2(Number(smc?.lastSwingHigh?.price || sr.resistance1));
+  const prevShPrice = round2(Number(smc?.prevSwingHigh?.price || pshPrice));
+  const pslPrice = round2(Number(smc?.lastSwingLow?.price || sr.support1));
+  const prevSlPrice = round2(Number(smc?.prevSwingLow?.price || pslPrice));
+  const isHH = pshPrice >= prevShPrice * 0.998;
+  const isHL = pslPrice >= prevSlPrice * 0.995;
+  const isLH = pshPrice < prevShPrice * 0.995;
+  const isLL = pslPrice < prevSlPrice * 0.995;
+  const smcStructTag = String(smc?.structureTag || "RANGE");
+  const hasBullBOS = smcStructTag === "BULLISH BOS" || currentPrice > pshPrice;
+  const hasBullCHoCH = smcStructTag === "BULLISH CHoCH" || (isHL && currentPrice > ema20 && supertrend.direction === "BULLISH");
+  const hasBearBOS = smcStructTag === "BEARISH BOS" || (isLH && isLL && currentPrice < pslPrice);
+  const hasBearCHoCH = smcStructTag === "BEARISH CHoCH" || currentPrice < pslPrice;
+
+  let msBias = "RANGING";
+  let msLabel = `RANGING (PSH Rs ${pshPrice} / PSL Rs ${pslPrice})`;
+  if (hasBullBOS) {
+    msBias = "BULLISH";
+    msLabel = `BULLISH BOS + HH/HL (> Swing High Rs ${pshPrice}, HL @ Rs ${pslPrice})`;
+  } else if (hasBullCHoCH) {
+    msBias = "BULLISH";
+    msLabel = `BULLISH CHoCH + HL Reversal (HL @ Rs ${pslPrice} > Prev Low Rs ${prevSlPrice})`;
+  } else if (isHH && isHL && currentPrice >= pslPrice) {
+    msBias = "BULLISH";
+    msLabel = `BULLISH HH + HL (HH Rs ${pshPrice}, Protected HL Rs ${pslPrice})`;
+  } else if (hasBearBOS || hasBearCHoCH || (isLH && isLL && currentPrice < ema20)) {
+    msBias = "BEARISH";
+    msLabel = hasBearCHoCH
+      ? `BEARISH CHoCH (< HL Rs ${pslPrice})`
+      : `BEARISH LH + LL (LH Rs ${pshPrice}, LL Rs ${pslPrice})`;
+  }
+  const f1_structurePass = msBias === "BULLISH";
+
+  // 2. 20 EMA (Short/Medium-Term Trend Direction: Bullish Price > 20 EMA)
+  const f2_ema20Pass = currentPrice > ema20 || (msBias === "BULLISH" && currentPrice >= ema20 * 0.992);
+  const f2_ema20Label =
+    currentPrice > ema20
+      ? `BULLISH (Price Rs ${currentPrice} > 20 EMA Rs ${ema20})`
+      : `BEARISH (Price Rs ${currentPrice} < 20 EMA Rs ${ema20})`;
+
+  // 3. 50 EMA (Confirm Swing Trend: Best Bullish = 20 EMA > 50 EMA)
+  const f3_ema50Pass = ema20 > ema50 || (currentPrice > ema50 && ema20 >= ema50 * 0.993);
+  const f3_ema50Label =
+    ema20 > ema50
+      ? `BULLISH SWING (20 EMA Rs ${ema20} > 50 EMA Rs ${ema50})`
+      : `BEARISH SWING (20 EMA Rs ${ema20} < 50 EMA Rs ${ema50})`;
+
+  // 4. Support & Resistance (Major Support, Major Resistance, PSH, PSL, Breakout/Retest)
+  const majorSupport = round2(Math.max(sr.support1, pslPrice));
+  const majorResistance = round2(Math.max(sr.resistance1, pshPrice));
+  const isBreakoutOrRetest =
+    chartPatternCMT.isThrowbackTest ||
+    hasBullBOS ||
+    (currentPrice >= majorSupport * 0.99 && currentPrice <= majorSupport * 1.045) ||
+    (currentPrice >= ema20 * 0.99 && currentPrice <= ema20 * 1.03);
+  const f4_srPass = isBreakoutOrRetest && currentPrice < majorResistance * 0.985;
+  const f4_srLabel = chartPatternCMT.isThrowbackTest
+    ? `Breakout Retest Holding @ Rs ${majorSupport} (PSH Rs ${pshPrice})`
+    : `Support @ Rs ${majorSupport} (PSL Rs ${pslPrice}) → Resistance @ Rs ${majorResistance} (PSH Rs ${pshPrice})`;
+
+  // 5. Volume (Compare Current Volume vs 20D Avg Volume; Prefer Breakout/Bounce + Strong Vol)
+  const isWeakBreakout = currentPrice > pshPrice && volRatio < 1.05;
+  const f5_volumePass =
+    !isWeakBreakout &&
+    ((volRatio >= 1.15 && lastBar.close >= lastBar.open) ||
+      (volRatio >= 0.88 && smartMoney.obvStatus.includes("ACCUMULATION")) ||
+      (volRatio >= 0.95 && candleCLV >= 0.52));
+  const f5_volumeLabel =
+    volRatio >= 1.15 && lastBar.close >= lastBar.open
+      ? `STRONG VOLUME CONFIRMATION (${volRatio}x vs 20D Avg • OBV ${smartMoney.obvStatus})`
+      : isWeakBreakout
+        ? `WEAK BREAKOUT VOLUME (${volRatio}x < 1.05x Avg — Avoid Weak Breakout)`
+        : volRatio >= 0.88
+          ? `ACCUMULATION VOLUME (${volRatio}x Avg • OBV ${smartMoney.obvStatus})`
+          : `BELOW-AVERAGE VOLUME (${volRatio}x vs 20D Avg — Wait for Volume Expansion)`;
+
+  // 6. RSI 14 (Momentum Confirmation Only: Bullish RSI > 50 + Divergence Check)
+  const hasBullDiv = String(divergence || "").includes("Bullish");
+  const hasBearDiv = String(divergence || "").includes("Bearish");
+  const f6_rsiPass = !hasBearDiv && ((rsi14 > 50 && rsi14 <= 68) || (hasBullDiv && rsi14 >= 42));
+  const f6_rsiLabel =
+    rsi14 > 50
+      ? `BULLISH MOMENTUM (RSI ${rsi14} > 50${hasBullDiv ? " + Bullish Divergence" : ""})`
+      : hasBullDiv
+        ? `BULLISH DIVERGENCE REVERSAL (RSI ${rsi14})`
+        : `BEARISH / WEAK MOMENTUM (RSI ${rsi14} < 50)`;
+
+  // 7. Fibonacci Retracement (38.2% / 50% / 61.8% / 78.6% — Focus on 50–78.6% OTE Overlap)
+  const fib382 = sr.fib382;
+  const fib500 = sr.fib500;
+  const fib618 = sr.fib618;
+  const fib786 = round2(Number(smc?.oteLow || sr.swingHigh - Math.max(1, sr.swingHigh - sr.swingLow) * 0.786));
+  const inFib50To786 = currentPrice >= fib786 * 0.99 && currentPrice <= fib500 * 1.02;
+  const inFib382To786 = currentPrice >= fib786 * 0.99 && currentPrice <= fib382 * 1.02;
+  const f7_fibPass = inFib50To786 || inFib382To786 || (hasBullBOS && currentPrice <= fib382 * 1.035);
+  const f7_fibLabel = inFib50To786
+    ? `GOLDEN 50%–78.6% DISCOUNT ZONE (50%: Rs ${fib500} | 61.8%: Rs ${fib618} | 78.6%: Rs ${fib786})`
+    : inFib382To786
+      ? `FIB 38.2%–61.8% PULLBACK ZONE (38.2%: Rs ${fib382} | 50%: Rs ${fib500} | 61.8%: Rs ${fib618})`
+      : `Above Fib 38.2% (Rs ${fib382}) — Ideal Retest Zone: 50%–61.8% (Rs ${fib618}–${fib500})`;
+
+  // 10. Liquidity + Order Block (Sell-Side Liquidity Sweep + Bullish Order Block / Demand Retest)
+  const obLow = round2(Number(smc?.bullishOB?.low || sr.demandBlockLow));
+  const obHigh = round2(Number(smc?.bullishOB?.high || sr.demandBlockHigh));
+  const sslSwept = Boolean(smc?.sslSweep || smc?.sweptPWL);
+  const inOrNearBullOB = currentPrice >= obLow * 0.99 && currentPrice <= obHigh * 1.035;
+  const hasBullBreaker = Boolean(smc?.breakerBlock && String(smc.breakerBlock.type).includes("BULLISH"));
+  const f10_liqObPass = sslSwept || inOrNearBullOB || hasBullBreaker || Boolean(smc?.bullishFVG);
+  const f10_liqObLabel = sslSwept
+    ? `SSL LIQUIDITY SWEEP (< Rs ${smc.sslPoolPrice}) + Bullish OB (Rs ${obLow}–${obHigh})`
+    : inOrNearBullOB
+      ? `MITIGATING BULLISH ORDER BLOCK (Rs ${obLow}–${obHigh}) + Protected HL (Rs ${pslPrice})`
+      : `Bullish Demand OB @ Rs ${obLow}–${obHigh} | SSL Pool < Rs ${smc?.sslPoolPrice || pslPrice}`;
+
+  // 8. Exact Swing Entry & ATR-14 + Market Structure Stop-Loss (Never a random fixed %)
+  const swEntryPrice =
+    isImmediateBuy || inOrNearBullOB || inFib50To786
+      ? currentPrice
+      : round2(Math.min(currentPrice, Math.max(obHigh, fib500, ema20)));
+  const swDipLimitPrice = round2(Math.max(obLow, fib618, ema50 * 0.99));
+
+  // Nearest Active Structural Support below Entry (Bullish OB Low or Swing Higher Low PSL)
+  const structCandidates = [pslPrice, obLow, fib618, ema50].filter(
+    (lvl) => Number.isFinite(lvl) && lvl > 0 && lvl < swEntryPrice * 0.996 && lvl >= swEntryPrice * 0.935
+  );
+  const activeStructureFloor = round2(
+    structCandidates.length > 0
+      ? Math.max(...structCandidates)
+      : Math.max(Math.min(pslPrice, obLow), swEntryPrice - atr14 * 1.15)
+  );
+  // Combine Market Structure Floor with 0.85x ATR(14) volatility buffer (unique per stock, never a fixed %)
+  const rawAtrStructureStop = round2(activeStructureFloor - atr14 * 0.85);
+  const swAtrStopLoss = round2(
     Math.max(
-      exactBackupDipPrice,
-      sma50 > 0 && sma50 < currentPrice * 0.99 ? sma50 : currentPrice * 0.968
+      swEntryPrice - atr14 * 2.45,
+      Math.min(swEntryPrice - atr14 * 1.25, rawAtrStructureStop)
     )
   );
-  // Wider Structural Swing Stop-Loss (4.5% to 6.2% below 20D/50D SMA support so 1-day NEPSE noise never whipsaws out)
-  const swStructuralStop = round2(
+  const swStopDist = Math.max(1, round2(swEntryPrice - swAtrStopLoss));
+  const swStopPct = round2((swStopDist / swEntryPrice) * 100);
+  const swStopAtrMultiple = round2(swStopDist / Math.max(0.5, atr14));
+  const f8_atrPass = swStopAtrMultiple >= 1.2 && swStopAtrMultiple <= 2.6 && swStopPct <= 7.8;
+  const f8_atrLabel = `ATR(14) = Rs ${atr14} • Stop @ Rs ${swAtrStopLoss} (${swStopAtrMultiple}x ATR • 0.85x ATR below Structure Floor Rs ${activeStructureFloor})`;
+
+  // 9. Targets 1, 2, 3 & Risk/Reward (R = Potential Profit ÷ Potential Loss; Prefer >= 1:2, Strong 1:3+)
+  // Target 1: Previous Swing High / Major R1
+  const swTarget1 = round2(
     Math.max(
-      currentPrice * 0.935,
-      Math.min(
-        exactStopLossPrice,
-        sma50 > 0 && sma50 < currentPrice ? sma50 * 0.978 : currentPrice * 0.952,
-        currentPrice * 0.954
+      swEntryPrice + swStopDist * 1.35,
+      Math.min(Math.max(majorResistance, exactSellTarget1), swEntryPrice + swStopDist * 1.95)
+    )
+  );
+  // Target 2 (Primary Swing Target): Major Resistance R2 / Bearish Supply OB / Measured Swing Leg
+  const supplyZoneTarget = round2(
+    Math.max(
+      sr.resistance2,
+      Number(smc?.bearishOB?.high || 0),
+      exactSellTarget2,
+      pshPrice + (pshPrice - pslPrice) * 0.618
+    )
+  );
+  const swTarget2 = round2(
+    Math.max(
+      swEntryPrice + swStopDist * 2.02,
+      swTarget1 * 1.04,
+      Math.min(supplyZoneTarget, swEntryPrice + swStopDist * 2.95)
+    )
+  );
+  // Target 3 (Extended Runner Target): 52-Week High / Full 1.0x–1.618x Swing Extension (>= 3.0R+)
+  const extTarget = round2(Math.max(high52wRef, target3Num, pshPrice + (pshPrice - pslPrice) * 1.272));
+  const swTarget3 = round2(
+    Math.max(
+      swEntryPrice + swStopDist * 3.05,
+      swTarget2 * 1.05,
+      Math.min(extTarget, swEntryPrice + swStopDist * 4.5)
+    )
+  );
+
+  const swT1GainPct = round2(((swTarget1 - swEntryPrice) / swEntryPrice) * 100);
+  const swT2GainPct = round2(((swTarget2 - swEntryPrice) / swEntryPrice) * 100);
+  const swT3GainPct = round2(((swTarget3 - swEntryPrice) / swEntryPrice) * 100);
+
+  const rTarget1 = round2((swTarget1 - swEntryPrice) / swStopDist);
+  const rTarget2 = round2((swTarget2 - swEntryPrice) / swStopDist);
+  const rTarget3 = round2((swTarget3 - swEntryPrice) / swStopDist);
+  const f9_rrPass = rTarget2 >= 2.0;
+  const f9_rrLabel = `1 : ${rTarget2} R (T2) • 1 : ${rTarget3} R (T3 Runner) [Risk Rs ${swStopDist}/sh vs Reward Rs ${round2(swTarget2 - swEntryPrice)}–${round2(swTarget3 - swEntryPrice)}/sh]`;
+
+  // Synthesize the 10-Factor Checklist & Confluence Score
+  const swingFactors10 = [
+    { id: 1, name: "1. Market Structure (HH/HL/BOS/CHoCH)", passed: f1_structurePass, detail: msLabel },
+    { id: 2, name: "2. 20 EMA Short/Med Trend", passed: f2_ema20Pass, detail: f2_ema20Label },
+    { id: 3, name: "3. 50 EMA Swing Confirmation", passed: f3_ema50Pass, detail: f3_ema50Label },
+    { id: 4, name: "4. Support & Resistance (PSH/PSL)", passed: f4_srPass, detail: f4_srLabel },
+    { id: 5, name: "5. Volume vs 20D Average", passed: f5_volumePass, detail: f5_volumeLabel },
+    { id: 6, name: "6. RSI 14 Momentum (>50 / Div)", passed: f6_rsiPass, detail: f6_rsiLabel },
+    { id: 7, name: "7. Fibonacci (38.2/50/61.8/78.6%)", passed: f7_fibPass, detail: f7_fibLabel },
+    { id: 8, name: "8. ATR 14 Structure Stop-Loss", passed: f8_atrPass, detail: f8_atrLabel },
+    { id: 9, name: "9. Risk/Reward (R ≥ 1:2 / 1:3+)", passed: f9_rrPass, detail: f9_rrLabel },
+    { id: 10, name: "10. Liquidity Sweep + Order Block", passed: f10_liqObPass, detail: f10_liqObLabel }
+  ];
+
+  const factorsPassedCount = swingFactors10.filter((f) => f.passed).length;
+
+  // Score out of 100 weighted by the 10 Swing Factors + Volume/R:R/Backtest tie-breakers
+  const swingTradeScore = Math.min(
+    99,
+    Math.max(
+      15,
+      Math.round(
+        (f1_structurePass ? 16 : msBias === "RANGING" ? 7 : 0) +
+          (f2_ema20Pass ? 9 : 0) +
+          (f3_ema50Pass ? 9 : 0) +
+          (f4_srPass ? 8 : 3) +
+          (f5_volumePass ? 9 : 2) +
+          (f6_rsiPass ? 8 : 2) +
+          (f7_fibPass ? (inFib50To786 ? 9 : 6) : 2) +
+          (f8_atrPass ? 6 : 2) +
+          (f9_rrPass ? Math.min(10, Math.round(rTarget2 * 3.2)) : 2) +
+          (f10_liqObPass ? 8 : 2) +
+          Math.min(5, Math.round(volRatio * 2.2)) +
+          Math.min(5, Math.round((sw15_btWin - 45) * 0.14)) +
+          (newsCat.hasBearishVeto ? -18 : newsCat.hasBullishCatalyst ? (newsCat.directCount > 0 ? 4 : 2) : 0)
       )
     )
   );
-  const swStructuralStopPct = round2(((currentPrice - swStructuralStop) / currentPrice) * 100);
-  const swTarget1Scale50 = round2(Math.max(exactSellTarget1, currentPrice * 1.062));
-  const swTarget1GainPct = round2(((swTarget1Scale50 - currentPrice) / currentPrice) * 100);
-  const swTarget2Wave50 = round2(
-    Math.max(
-      exactSellTarget2,
-      swTarget1Scale50 * 1.055,
-      Math.min(high52wRef > currentPrice * 1.08 ? high52wRef : currentPrice * 1.15, currentPrice * 1.24)
-    )
-  );
-  const swTarget2GainPct = round2(((swTarget2Wave50 - currentPrice) / currentPrice) * 100);
 
+  // Only generate an active Swing Setup when multiple conditions align (Priority #1 Structure + EMA Trend + >= 7/10 Factors + R >= 1:2 + No Bearish News)
   const isSwingTrade = Boolean(
     !isImmediateSell &&
       proNewsSafetyPassed &&
       proLiquidityPassed &&
-      rsi14 >= 38 &&
-      rsi14 <= 67 &&
-      quantScore >= 60 &&
-      sw15_btWin >= 52 &&
-      swTarget2GainPct >= 9.5 &&
-      (supertrend.direction === "BULLISH" ||
-        currentPrice >= sma50 * 0.985 ||
-        (newsCat.hasBullishCatalyst && currentPrice >= ema20 * 0.975)) &&
-      (sw15_fEps >= 8 || sw15_fRoe >= 8 || avg5YrDivVal >= 10)
+      f1_structurePass &&
+      (f2_ema20Pass || f3_ema50Pass) &&
+      f9_rrPass &&
+      factorsPassedCount >= 7 &&
+      rsi14 >= 40 &&
+      rsi14 <= 68 &&
+      sw15_btWin >= 52
   );
 
-  const swingTradeScore = Math.min(
-    99,
-    Math.max(
-      18,
-      Math.round(
-        swing15Score * 0.58 +
-          Math.min(18, roomTo52wHighPct * 0.75) +
-          (newsCat.hasBullishCatalyst ? (newsCat.directCount > 0 ? 9 : 5) : 0) +
-          (avg5YrDivVal >= 13 || totalDeclaredDiv >= 10 ? 7 : 3) +
-          (sw15_btWin >= 65 ? 8 : sw15_btWin >= 55 ? 4 : 0)
-      )
-    )
-  );
+  const setupGrade = !proNewsSafetyPassed
+    ? "C (BEARISH NEWS VETO)"
+    : isSwingTrade && factorsPassedCount >= 9 && f2_ema20Pass && f3_ema50Pass && rTarget2 >= 2.1
+      ? "A+ (ELITE 10-FACTOR SWING)"
+      : isSwingTrade && factorsPassedCount >= 8
+        ? "A (STRONG SWING SETUP)"
+        : isSwingTrade
+          ? "A- (CONFIRMED SWING)"
+          : msBias === "BULLISH" && factorsPassedCount >= 6
+            ? "B (WAIT FOR FIB/OB PULLBACK)"
+            : "C (NO SWING SETUP / AVOID)";
 
   const swingTradeStyle =
-    isImmediateBuy && vcpTightnessPassed
-      ? "⚡ VCP Breakout Swing (2–4 Wks)"
-      : newsCat.directCount > 0 || totalDeclaredDiv >= 10
-        ? "🎁 Dividend / News Wave (3–6 Wks)"
-        : "🌊 Stage-2 Pullback Swing (2–5 Wks)";
+    hasBullBOS && f5_volumePass
+      ? "⚡ BOS + Volume Breakout Swing"
+      : sslSwept || inOrNearBullOB
+        ? "🐋 SSL Sweep + Order Block Swing"
+        : inFib50To786
+          ? "🎯 Fib 50–78.6% OTE Pullback Swing"
+          : "🌊 HH+HL EMA Trend Continuation";
+
+  const swingReason = `${msLabel} → ${
+    f2_ema20Pass && f3_ema50Pass
+      ? `Price > 20 EMA (Rs ${ema20}) > 50 EMA (Rs ${ema50})`
+      : `Testing EMA Support (20 EMA Rs ${ema20} / 50 EMA Rs ${ema50})`
+  } → ${
+    inFib50To786
+      ? `Fib 50–78.6% Discount (Rs ${fib786}–${fib500})`
+      : `Fib Retest (50% Rs ${fib500} / 61.8% Rs ${fib618})`
+  } + Bullish OB (Rs ${obLow}–${obHigh})${sslSwept ? " + SSL Sweep" : ""} → RSI ${rsi14} & Vol ${volRatio}x Avg (${factorsPassedCount}/10 Factors Aligned)`;
+
+  const swingInvalidation = `Daily 3:00 PM close below Rs ${swAtrStopLoss} — breaks Higher Low (PSL Rs ${pslPrice}) & Bullish Order Block floor (Rs ${obLow}) minus ${swStopAtrMultiple}x ATR(14) (Rs ${atr14}) buffer (Bearish CHoCH).`;
 
   const swingTrade = {
     isSwingTrade,
     swingTradeScore,
     swingTradeStyle,
-    proTraderGrade,
+    setupGrade,
+    proTraderGrade: setupGrade,
+    factorsPassedCount,
+    totalFactors: 10,
     horizonLabel: "2–6 Weeks (15–30 Trading Days • T+2 Safe)",
-    tranche1Buy: swTranche1Buy,
-    tranche2Buy: swTranche2Buy,
-    buyZoneText: `Rs ${swTranche2Buy} – ${swTranche1Buy}`,
-    structuralStopLoss: swStructuralStop,
-    structuralStopPct: swStructuralStopPct,
-    target1Scale50: swTarget1Scale50,
-    target1GainPct: swTarget1GainPct,
-    target2Wave50: swTarget2Wave50,
-    target2GainPct: swTarget2GainPct,
+    // Exact 9 Required Fields for Every Stock:
+    entry: swEntryPrice,
+    entryText:
+      swEntryPrice === currentPrice
+        ? `Rs ${swEntryPrice} (Add Dip @ OB/Fib Rs ${swDipLimitPrice})`
+        : `Limit @ Rs ${swEntryPrice} (OB/Fib Zone Rs ${swDipLimitPrice}–${swEntryPrice})`,
+    tranche1Buy: swEntryPrice,
+    tranche2Buy: swDipLimitPrice,
+    buyZoneText: `Rs ${swDipLimitPrice} – ${swEntryPrice}`,
+    stopLoss: swAtrStopLoss,
+    stopLossText: `Rs ${swAtrStopLoss} (-${swStopPct}% • ${swStopAtrMultiple}x ATR < HL/OB)`,
+    structuralStopLoss: swAtrStopLoss,
+    structuralStopPct: swStopPct,
+    target1: swTarget1,
+    target1Text: `Rs ${swTarget1} (+${swT1GainPct}% • ${rTarget1}R • PSH/R1)`,
+    target1Scale50: swTarget1,
+    target1GainPct: swT1GainPct,
+    target2: swTarget2,
+    target2Text: `Rs ${swTarget2} (+${swT2GainPct}% • ${rTarget2}R • Supply/R2)`,
+    target2Wave50: swTarget2,
+    target2GainPct: swT2GainPct,
+    target3: swTarget3,
+    target3Text: `Rs ${swTarget3} (+${swT3GainPct}% • ${rTarget3}R • 52W/Ext)`,
+    target3GainPct: swT3GainPct,
+    rRatio: rTarget2,
+    rRatioTarget3: rTarget3,
+    rText: `1 : ${rTarget2} (T2) • 1 : ${rTarget3} (T3)`,
+    reason: swingReason,
+    invalidation: swingInvalidation,
+    // Detailed 10-Factor Breakdown
+    marketStructure: msLabel,
+    msBias,
+    ema20,
+    ema50,
+    majorSupport,
+    majorResistance,
+    pshPrice,
+    pslPrice,
+    fib382,
+    fib500,
+    fib618,
+    fib786,
+    atr14,
+    obZone: `Rs ${obLow} – ${obHigh}`,
+    sslSwept,
+    volRatio,
+    rsi14,
     high52w: high52wRef,
     roomTo52wHighPct,
     btWinRate: sw15_btWin,
     avg5YrDiv: avg5YrDivVal,
     totalDeclaredDiv,
     newsSentiment: newsCat.sentiment,
-    newsHeadline: newsCat.topHeadline
+    newsHeadline: newsCat.topHeadline,
+    factors10: swingFactors10
   };
 
   return {
@@ -3997,6 +4259,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
       stochRsi,
       ema9,
       ema20,
+      ema50,
       distFromEma20Pct,
       sma20,
       sma50,
