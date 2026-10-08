@@ -3911,9 +3911,10 @@
       const pf = Number(s.backtest?.profitFactor || 0);
       const eps = Number(s.fundamentals?.eps || 0);
       const roe = Number(s.fundamentals?.roe || 0);
+      const stBull = s.indicators?.supertrendDir === 'BULLISH' || s.indicators?.supertrend?.direction === 'BULLISH';
       return !s.isImmediateSell &&
-        s.indicators?.supertrend?.direction === 'BULLISH' &&
-        Number(s.ltp || 0) >= Number(s.indicators?.ema20 || 0) * 0.985 &&
+        stBull &&
+        Number(s.ltp || 0) >= Number(s.indicators?.ema20 || 0) * 0.99 &&
         rsi >= 44 && rsi <= 66 &&
         q >= 65 &&
         (win >= 55 || pf >= 1.25) &&
@@ -4068,7 +4069,8 @@
         const t2Pct = ltp > 0 ? (((t2 - ltp) / ltp) * 100).toFixed(1) : '13.5';
         const winRate = fmtNum(s.backtest?.winRate, 1);
         const pf = fmtNum(s.backtest?.profitFactor, 2);
-        const rulesPassed = s.masterConfluence?.rulesPassed ?? 4;
+        const vcpTxt = sw.vcpAvg5dRangePct !== undefined ? ` • VCP ${fmtNum(sw.vcpAvg5dRangePct, 1)}%` : '';
+        const rulesPassed = s.masterConsensus?.rulesPassedCount ?? s.masterConfluence?.rulesPassed ?? 5;
         const badgeLabel = sw.swing15Badge || (idx === 0 ? '🏆 #1 15-DAY CONVICTION' : '🚀 15-DAY SWING PICK');
         return `<tr style="border-bottom:1px solid var(--border-subtle); cursor:pointer;" onclick="selectStock('${s.symbol}', true)">
           <td style="padding:8px 10px;">
@@ -4076,7 +4078,7 @@
               <span class="badge badge-green" style="font-size:10px;">#${idx + 1}</span>
               <div>
                 <div style="font-weight:800; font-size:13px; color:var(--text-main);">${s.symbol} <span style="font-size:10px; color:var(--green-main); font-weight:700;">(${badgeLabel})</span></div>
-                <div style="font-size:10.5px; color:var(--text-secondary);">${s.companyName || s.name || s.symbol} • ${s.sector}</div>
+                <div style="font-size:10.5px; color:var(--text-secondary);">${s.companyName || s.name || s.symbol} • ${s.sector}${vcpTxt}</div>
               </div>
             </div>
           </td>
