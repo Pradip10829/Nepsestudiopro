@@ -1501,13 +1501,15 @@ class NepseProvider {
   attachRegimeToQuote(q, sectorMap, regimeObj) {
     if (!q) return q;
     const secInfo = sectorMap.get(q.sector);
+    const newsCatalyst = this.getStockNewsCatalyst ? this.getStockNewsCatalyst(q.symbol, q.sector) : null;
     return {
       ...q,
       sectorChangePct: secInfo ? secInfo.percentageChange : 0,
       sectorIndexVal: secInfo ? secInfo.indexVal : 0,
       nepseChangePct: Number(this.marketIndex.percentageChange) || 0,
       nepseIndexVal: Number(this.marketIndex.nepseIndex) || 2566.76,
-      marketBreadthPct: regimeObj.breadthPct
+      marketBreadthPct: regimeObj.breadthPct,
+      newsCatalyst
     };
   }
 
@@ -1789,14 +1791,17 @@ class NepseProvider {
       "dividend", "bonus", "profit", "surge", "growth", "ease", "cut", "liquidity",
       "bull", "accumulation", "approval", "ppa", "generation", "recovery", "drop in npl",
       "high", "record", "rally", "buy", "expansion", "right share", "accept", "first", "launch",
+      "proposes", "margin trading", "7.5%", "leads gains", "inches up", "reform", "secure dividend",
       // Nepali (Devanagari) Bullish Keywords for MeroLagani Live Headlines
-      "बढ्यो", "उछाल", "नाफा", "लाभांश", "बोनस", "हकप्रद", "सकारात्मक", "वृद्धि", "सुधार", "फड्को", "सहज", "घोषणा", "उच्च", "बढेको"
+      "बढ्यो", "उछाल", "नाफा", "लाभांश", "बोनस", "हकप्रद", "सकारात्मक", "वृद्धि", "सुधार",
+      "फड्को", "सहज", "घोषणा", "उच्च", "बढेको", "पारित", "उत्पादन पुनः सुरु", "शेयर किनबेच", "साधारणसभा सम्पन्न"
     ];
     const bearWords = [
       "lock-in", "dump", "npl rise", "loss", "tighten", "penalty", "decline",
       "bear", "sell-off", "warning", "suspend", "default", "drop in profit", "overvalued", "reduce",
+      "remains shut", "shut after", "devastating", "flood", "halt", "damaged", "unaccounted",
       // Nepali (Devanagari) Bearish Keywords for MeroLagani Live Headlines
-      "घट्यो", "गिरावट", "नोक्सान", "घाटा", "कमी", "दबाब", "चाप", "कारबाही", "निलम्बन", "नकारात्मक", "घटेको"
+      "घट्यो", "गिरावट", "नोक्सान", "घाटा", "कमी", "दबाब", "चाप", "कारबाही", "निलम्बन", "नकारात्मक", "घटेको", "बन्द"
     ];
 
     let score = 0;
@@ -1827,6 +1832,155 @@ class NepseProvider {
   }
 
   /**
+   * Extracts mentioned NEPSE stock symbols and sector from English & Nepali news headlines
+   */
+  extractNewsEntities(title = "", summary = "") {
+    const combined = `${title} ${summary}`;
+    const lower = combined.toLowerCase();
+    const matchedSymbols = new Set();
+    let matchedSector = "Market-Wide";
+
+    // 1. Direct English/Nepali company name & symbol aliases
+    const aliasMap = [
+      { keys: ["nabil", "नबिल बैंक"], sym: "NABIL", sec: "Commercial Banks" },
+      { keys: ["nmb bank", "एनएमबि बैंक"], sym: "NMB", sec: "Commercial Banks" },
+      { keys: ["kumari bank", "kbl securities", "कुमारी बैंक"], sym: "KBL", sec: "Commercial Banks" },
+      { keys: ["global ime", "ग्लोबल आइएमई"], sym: "GBIME", sec: "Commercial Banks" },
+      { keys: ["citizens bank", "सिटिजन्स बैंक"], sym: "CZBIL", sec: "Commercial Banks" },
+      { keys: ["machhapuchchhre", "माछापुच्छ्रे"], sym: "MBL", sec: "Commercial Banks" },
+      { keys: ["sanima bank", "सानिमा बैंक"], sym: "SANIMA", sec: "Commercial Banks" },
+      { keys: ["siddhartha bank", "सिद्धार्थ बैंक"], sym: "SBL", sec: "Commercial Banks" },
+      { keys: ["agriculture development bank", "कृषि विकास बैंक"], sym: "ADBL", sec: "Commercial Banks" },
+      { keys: ["standard chartered", "स्ट्याण्डर्ड चार्टर्ड"], sym: "SCB", sec: "Commercial Banks" },
+      { keys: ["everest bank", "एभरेष्ट बैंक"], sym: "EBL", sec: "Commercial Banks" },
+      { keys: ["nic asia", "एनआईसी एशिया"], sym: "NICA", sec: "Commercial Banks" },
+      { keys: ["kutheli bukhari", "कुथेली बुखरी"], sym: "KBSH", sec: "Hydropower" },
+      { keys: ["rasuwagadhi hydropower", "रसुवागढी हाइड्रोपावर"], sym: "RHPL", sec: "Hydropower" },
+      { keys: ["balephi hydropower", "बलेफी हाइड्रोपावर"], sym: "BHL", sec: "Hydropower" },
+      { keys: ["sahas urja", "साहस उर्जा"], sym: "SAHAS", sec: "Hydropower" },
+      { keys: ["sikles hydropower", "सिक्लेस हाइड्रोपावर"], sym: "SIKLES", sec: "Hydropower" },
+      { keys: ["api power", "अपि पावर"], sym: "API", sec: "Hydropower" },
+      { keys: ["upper tamakoshi", "माथिल्लो तामाकोशी"], sym: "UPPER", sec: "Hydropower" },
+      { keys: ["chilime hydropower", "चिलिमे"], sym: "CHCL", sec: "Hydropower" },
+      { keys: ["himalayan distillery", "हिमालयन डिष्टिलरी"], sym: "HDL", sec: "Manufacturing & Processing" },
+      { keys: ["shivam cements", "शिवम् सिमेन्ट"], sym: "SHIVM", sec: "Manufacturing & Processing" },
+      { keys: ["chhimek laghubitta", "छिमेक लघुवित्त"], sym: "CBBL", sec: "Microfinance" },
+      { keys: ["asha laghubitta", "आशा लघुवित्त"], sym: "ALBSL", sec: "Microfinance" }
+    ];
+
+    for (const entry of aliasMap) {
+      if (entry.keys.some((k) => lower.includes(k))) {
+        matchedSymbols.add(entry.sym);
+        if (matchedSector === "Market-Wide") matchedSector = entry.sec;
+      }
+    }
+
+    // 2. Check exact uppercase ticker mentions in parentheses or standalone words (e.g. "(NMB)", "SAHAS")
+    if (this.quotes && this.quotes.size > 0) {
+      const upperWords = combined.match(/\b[A-Z]{3,8}\b/g) || [];
+      const ignoreWords = new Set(["NEPSE", "SEBON", "NRB", "IPO", "AGM", "SGM", "CDSC", "WACC", "LTP", "EPS", "ROE", "THE", "FOR", "AND", "HOW", "MUCH"]);
+      for (const w of upperWords) {
+        if (!ignoreWords.has(w) && this.quotes.has(w)) {
+          matchedSymbols.add(w);
+          const qObj = this.quotes.get(w);
+          if (qObj?.sector && matchedSector === "Market-Wide") matchedSector = qObj.sector;
+        }
+      }
+    }
+
+    // 3. Sector-level keyword detection
+    if (matchedSector === "Market-Wide") {
+      if (lower.includes("manufacturing") || lower.includes("उत्पादनमूलक") || lower.includes("सिमेन्ट")) {
+        matchedSector = "Manufacturing & Processing";
+      } else if (lower.includes("hydropower") || lower.includes("hydro") || lower.includes("हाइड्रोपावर") || lower.includes("जलविद्युत") || lower.includes("विद्युत")) {
+        matchedSector = "Hydropower";
+      } else if (lower.includes("microfinance") || lower.includes("laghubitta") || lower.includes("लघुवित्त")) {
+        matchedSector = "Microfinance";
+      } else if (lower.includes("bank") || lower.includes("बैंक") || lower.includes("margin trading")) {
+        matchedSector = "Commercial Banks";
+      } else if (lower.includes("insurance") || lower.includes("बिमा") || lower.includes("बीमा")) {
+        matchedSector = "Non-Life Insurance";
+      } else if (lower.includes("hotel") || lower.includes("tourism") || lower.includes("पर्यटन")) {
+        matchedSector = "Hotels & Tourism";
+      }
+    }
+
+    return {
+      symbols: Array.from(matchedSymbols),
+      sector: matchedSector
+    };
+  }
+
+  /**
+   * Computes real-time News & Catalyst Intelligence for any stock symbol + sector
+   */
+  getStockNewsCatalyst(symbol, sector) {
+    const sym = String(symbol || "").trim().toUpperCase();
+    const sec = String(sector || "").trim();
+    const allItems = [
+      ...(Array.isArray(this._liveNewsCache) ? this._liveNewsCache : []),
+      ...this.getCuratedNepseNews()
+    ];
+
+    const directMatches = [];
+    const sectorMatches = [];
+
+    for (const item of allItems) {
+      const ents = this.extractNewsEntities(item.title || "", item.summary || "");
+      const itemSyms = new Set([...(Array.isArray(item.symbols) ? item.symbols : []), ...ents.symbols]);
+      const itemSec = item.sector && item.sector !== "Market-Wide" ? item.sector : ents.sector;
+
+      if (itemSyms.has(sym)) {
+        directMatches.push(item);
+      } else if (sec && itemSec && itemSec.toLowerCase() === sec.toLowerCase()) {
+        sectorMatches.push(item);
+      }
+    }
+
+    let newsScore = 50; // 0-100 scale (50 = neutral)
+    let hasBearishVeto = false;
+    let hasBullishCatalyst = false;
+
+    for (const m of directMatches) {
+      if (String(m.sentiment).includes("BULLISH")) {
+        newsScore += 22;
+        hasBullishCatalyst = true;
+      } else if (String(m.sentiment).includes("BEARISH")) {
+        newsScore -= 35;
+        hasBearishVeto = true;
+      }
+    }
+
+    for (const m of sectorMatches.slice(0, 3)) {
+      if (String(m.sentiment).includes("BULLISH")) {
+        newsScore += 8;
+        if (directMatches.length === 0) hasBullishCatalyst = true;
+      } else if (String(m.sentiment).includes("BEARISH")) {
+        newsScore -= 8;
+      }
+    }
+
+    newsScore = Math.max(5, Math.min(98, newsScore));
+    const topItem = directMatches[0] || sectorMatches[0] || allItems[0] || null;
+
+    return {
+      newsScore,
+      hasBearishVeto,
+      hasBullishCatalyst,
+      directCount: directMatches.length,
+      sectorCount: sectorMatches.length,
+      sentiment: hasBearishVeto
+        ? "🔴 BEARISH NEWS VETO"
+        : hasBullishCatalyst
+          ? "🟢 BULLISH NEWS CATALYST"
+          : "🟡 NEUTRAL NEWS FLOW",
+      topHeadline: topItem ? topItem.title : "Steady NEPSE sector & macro news flow",
+      topSource: topItem ? topItem.source : "NEPSE News Desk",
+      topDate: topItem ? topItem.date : ""
+    };
+  }
+
+  /**
    * Curated + Live-Scraped NEPSE Macro, Sector & Stock-Specific Catalyst News Feed
    */
   getCuratedNepseNews() {
@@ -1836,15 +1990,15 @@ class NepseProvider {
         id: "NRB-MACRO-1",
         category: "🏛️ NRB & Macro Policy",
         sector: "Commercial Banks",
-        symbols: ["NABIL", "SCB", "EBL", "GBIME", "SBL", "PCBL", "SANIMA", "NMB"],
-        title: "NRB Excess Liquidity & Falling Base Rates Boost Banking & Institutional Margin Lending",
+        symbols: ["NABIL", "SCB", "EBL", "GBIME", "SBL", "PCBL", "SANIMA", "NMB", "MBL", "ADBL"],
+        title: "NRB Excess Liquidity & 7.5% Margin Trading Facility Boost Commercial Banks & Institutional Flows",
         summary:
-          "Commercial banks report easing CD ratios (~79.4%) and declining base rates, lowering institutional borrowing costs and supporting steady dividend capacity in Class 'A' banks.",
+          "Commercial banks report easing CD ratios (~79.4%), bank-counter share/insurance services, and 7.5% margin lending rates supporting accumulation in MBL, SANIMA, ADBL, SBL, NABIL & NMB.",
         source: "NEPSE Macro Desk / NRB Bulletin",
         date: nptDateStr,
         sentiment: "🟢 BULLISH CATALYST",
         horizonImpact: "💎 Long-Term Hold (1–5 Yrs) & ⚡ Swing",
-        actionTip: "Accumulate low-NPL Class 'A' banks (SCB, EBL, NABIL) for 1–5 yr compounding & GBIME/PCBL for value swing."
+        actionTip: "Accumulate low-NPL Class 'A' banks (MBL, SANIMA, ADBL, SBL, SCB, NABIL) for swing & dividend compounding."
       },
       {
         id: "FIN-SWING-2",
@@ -1864,57 +2018,57 @@ class NepseProvider {
         id: "HYDRO-GEN-3",
         category: "🌊 Hydropower & Energy",
         sector: "Hydropower",
-        symbols: ["SAHAS", "AKPL", "CHCL", "API", "RADHI", "SHPC", "UPPER"],
-        title: "Full-Capacity Wet Season Generation Boosts Q1 Revenue for SAHAS, AKPL & CHCL; Watch Lock-In Expiries",
+        symbols: ["SAHAS", "SIKLES", "CHCL", "API", "RADHI", "SHPC", "KBSH"],
+        title: "Full-Capacity Generation & Dividend Proposals Lift SAHAS, SIKLES, API & KBSH; Avoid Flood-Hit Plants",
         summary:
-          "Run-of-river hydropower projects are operating at peak generation capacity, lifting quarterly EPS. However, traders should strictly avoid scripts with upcoming promoter lock-in expiry.",
+          "Run-of-river hydropower leaders (SAHAS, SIKLES, API, KBSH 18.95% div) are operating at peak capacity, while flood-affected Rasuwagadhi (RHPL) remains shut.",
         source: "NEA / Sector Intelligence",
         date: nptDateStr,
         sentiment: "🟢 BULLISH CATALYST",
         horizonImpact: "⚡ Short-Term Swing & 💎 Selective Hold",
-        actionTip: "Favor LOW lock-in risk leaders (SAHAS, AKPL, CHCL) and avoid HIGH lock-in supply overhang (UPPER)."
+        actionTip: "Favor A+ VCP hydropower leaders (SAHAS, SIKLES, API) and avoid flood-shut or high lock-in scripts (RHPL, UPPER)."
       },
       {
         id: "MICRO-DIV-4",
         category: "🤝 Microfinance & Dividends",
         sector: "Microfinance",
-        symbols: ["CBBL", "DDBL", "SWBBL"],
-        title: "Chhimek (CBBL) & Top Laghubittas Lead Institutional Accumulation Ahead of Dividend Season",
+        symbols: ["CBBL", "ALBSL", "DDBL", "SWBBL"],
+        title: "Asha Laghubitta (ALBSL) & Chhimek (CBBL) Lead Institutional Accumulation Ahead of Dividend Season",
         summary:
-          "Falling cost of funds from commercial banks is expanding net interest margins (NIM) for top-tier Microfinance institutions led by CBBL (ROE 21.3%, 5Y Avg Div 24%).",
+          "Falling cost of funds from commercial banks is expanding net interest margins (NIM) for top-tier Microfinance institutions led by ALBSL (ROE 18.7%) and CBBL.",
         source: "ShareSansar / Fundamental Desk",
         date: nptDateStr,
         sentiment: "🟢 BULLISH CATALYST",
         horizonImpact: "⚡ Immediate Buy & 💎 Long-Term Compounder",
-        actionTip: "CBBL ranks #1 Golden Combo (both ⚡ Immediate Buy at LTP and 💎 Blue-Chip Long-Term Hold)."
+        actionTip: "ALBSL & CBBL pass strict VCP tightness and 80% historical win-rate filters."
       },
       {
         id: "BLUECHIP-DIV-5",
-        category: "💎 Dividend & Book Closure",
-        sector: "Manufacturing & Others",
+        category: "💎 Dividend & Manufacturing Leadership",
+        sector: "Manufacturing & Processing",
         symbols: ["HDL", "SCB", "NTC", "CIT", "SHIVM", "NIL", "NLIC"],
-        title: "Dividend Compounders (SCB, HDL, NTC, CIT) Attract Long-Term SIP Flows Near 200-DMA Value Zones",
+        title: "Manufacturing Sector Leads Market Gains as HDL & Dividend Compounders Bounce Off 20D EMA Support",
         summary:
-          "Long-term retirement and institutional funds continue steady SIP accumulation in debt-free cash cows (HDL 42% 5Y avg div, SCB 23.8% 5Y avg div, NTC & CIT).",
+          "Manufacturing & Processing led NEPSE sector gains (+0.64%) as Himalayan Distillery (HDL) bounced +1.01% off its Rs 1,261 institutional demand floor.",
         source: "Merolagani / Corporate Actions",
         date: nptDateStr,
         sentiment: "🟢 BULLISH CATALYST",
-        horizonImpact: "💎 Long-Term Hold (1–5 Yrs)",
-        actionTip: "Use !longterm to buy in SIP zones and hold across AGM bonus/cash book closures."
+        horizonImpact: "💎 Long-Term Hold (1–5 Yrs) & 🚀 15D Swing",
+        actionTip: "Accumulate HDL near Rs 1,261–1,274 for Target 1 Rs 1,398."
       },
       {
         id: "RISK-ALERT-6",
-        category: "⚠️ Regulatory & NPL Risk Alert",
+        category: "⚠️ Regulatory, Flood & Lock-In Risk Alert",
         sector: "Risk Watch",
-        symbols: ["NICA", "UPPER", "JBBL"],
-        title: "Advisor Risk Watch: High NPL Provisioning & Promoter Lock-In Supply Overhang in Select Scripts",
+        symbols: ["NICA", "UPPER", "JBBL", "RHPL"],
+        title: "Advisor Risk Watch: RHPL Flood Shutdown, High NPL Provisioning & Lock-In Supply Overhang",
         summary:
-          "Our 4 'No-Trap' Signal Filters flagged elevated NPL pressure in select banks (NICA 3.45% NPL) and high P/E / lock-in supply overhang in UPPER. Wait for confirmed base formation.",
+          "Rasuwagadhi Hydropower (RHPL) remains shut after the Bhotekoshi flood, while high NPL pressure in NICA and right-share overhang in UPPER trigger capital protection vetoes.",
         source: "NEPSE Quant Pro Risk Gatekeeper",
         date: nptDateStr,
         sentiment: "🔴 BEARISH / CAUTION",
         horizonImpact: "🛡️ Capital Protection Veto",
-        actionTip: "Avoid chasing weak candles; rotate capital into A+ graded stocks in !immediate or !best."
+        actionTip: "Avoid flood-impacted or weak-candle stocks; rotate into A+ VCP leaders (SAHAS, MBL, ALBSL, SANIMA)."
       }
     ];
   }
@@ -1937,7 +2091,15 @@ class NepseProvider {
         if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
           this._liveNewsCache = parsed.items.map((item) => {
             const cls = this.classifyNewsSentiment(item.title, item.summary || "");
-            return { ...item, isLive: true, sentiment: cls.sentiment, horizonImpact: cls.horizonImpact };
+            const ents = this.extractNewsEntities(item.title, item.summary || "");
+            return {
+              ...item,
+              isLive: true,
+              symbols: item.symbols && item.symbols.length > 0 ? item.symbols : ents.symbols,
+              sector: item.sector && item.sector !== "Market-Wide" ? item.sector : ents.sector,
+              sentiment: cls.sentiment,
+              horizonImpact: cls.horizonImpact
+            };
           });
           this._liveNewsUpdatedAt = parsed.updatedAt || new Date().toISOString();
           this._liveNewsTime = nowMs;
@@ -1946,9 +2108,10 @@ class NepseProvider {
       } catch (_) {}
     }
 
-    if (!forceRefresh && this._liveNewsCache && Array.isArray(this._liveNewsCache) && this._liveNewsCache.length > 0) {
+    const newsStale = !this._liveNewsTime || nowMs - this._liveNewsTime > 300000;
+    if (!forceRefresh && !newsStale && this._liveNewsCache && Array.isArray(this._liveNewsCache) && this._liveNewsCache.length > 0) {
       liveScraped = this._liveNewsCache;
-    } else if (forceRefresh && cheerio) {
+    } else if ((forceRefresh || newsStale) && cheerio) {
       const https = require("https");
       const fetchHtml = (targetUrl) =>
         new Promise((resolve) => {
@@ -1965,12 +2128,12 @@ class NepseProvider {
               if (req) req.destroy();
             } catch (_) {}
             finish(null);
-          }, 5000);
+          }, 6500);
           req = https.get(
             targetUrl,
             {
               rejectUnauthorized: false,
-              timeout: 5000,
+              timeout: 6500,
               headers: {
                 "User-Agent":
                   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -2001,10 +2164,11 @@ class NepseProvider {
           req.on("error", () => finish(null));
         });
 
-      const [mlHtml, ssLatestHtml, ssShareHtml] = await Promise.all([
+      const [mlHtml, ssLatestHtml, ssShareHtml, ssDivHtml] = await Promise.all([
         fetchHtml("https://merolagani.com/NewsList.aspx"),
         fetchHtml("https://www.sharesansar.com/category/latest"),
-        fetchHtml("https://www.sharesansar.com/category/share-news")
+        fetchHtml("https://www.sharesansar.com/category/share-news"),
+        fetchHtml("https://www.sharesansar.com/category/dividend-right-bonus")
       ]);
 
       // 1. Parse MeroLagani Live News (https://merolagani.com/NewsList.aspx)
@@ -2013,12 +2177,13 @@ class NepseProvider {
           const $ = cheerio.load(mlHtml);
           $(".media-news").each((_, el) => {
             if (liveScraped.filter((x) => x.source === "MeroLagani Live").length >= 8) return;
-            const linkEl = $(el).find("h4.media-title a, h4 a, a[href*='NewsDetail.aspx']").first();
+            const linkEl = $(el).find(".media-title a, .media-body h4 a").first();
             const title = linkEl.text().replace(/\s+/g, " ").trim();
             const href = linkEl.attr("href") || "";
             const dateTxt = $(el).find(".media-label, .text-muted, time").first().text().replace(/\s+/g, " ").trim();
-            if (title && title.length > 12 && !liveScraped.some((x) => x.title === title)) {
+            if (title && title.length > 10 && !liveScraped.some((x) => x.title === title)) {
               const cls = this.classifyNewsSentiment(title, "");
+              const ents = this.extractNewsEntities(title, "");
               const fullUrl = href.startsWith("http")
                 ? href
                 : `https://merolagani.com/${href.replace(/^\//, "")}`;
@@ -2026,59 +2191,61 @@ class NepseProvider {
                 id: `ML-LIVE-${liveScraped.length + 1}`,
                 isLive: true,
                 category: "📡 MeroLagani Live",
-                sector: "Market-Wide",
-                symbols: [],
+                sector: ents.sector,
+                symbols: ents.symbols,
                 title,
                 url: fullUrl,
-                summary: "Live headline fetched directly from MeroLagani News Desk.",
+                summary: `Live headline from MeroLagani News Desk${ents.symbols.length ? ` (Impacts: ${ents.symbols.join(", ")})` : ""}.`,
                 source: "MeroLagani Live",
                 date: dateTxt || this.isMarketOpenNow().nptDateStr,
                 sentiment: cls.sentiment,
                 horizonImpact: cls.horizonImpact,
-                actionTip: "Check stock's 6-Gate Consensus Score before acting on breaking news."
+                actionTip: "Automatically factored into NEPSE Quant Pro's News & Catalyst Engine."
               });
             }
           });
         } catch (_) {}
       }
 
-      // 2. Parse ShareSansar Latest & Share News
-      const parseShareSansar = (htmlStr, sourceLabel) => {
+      // 2. Parse ShareSansar Latest, Share News & Dividend/Bonus News
+      const parseShareSansar = (htmlStr, sourceLabel, maxTotal = 22) => {
         if (!htmlStr) return;
         try {
           const $ = cheerio.load(htmlStr);
           $("h4.featured-news-title a, .featured-news-list a[href*='/newsdetail/'], a[href*='/newsdetail/']").each((_, el) => {
-            if (liveScraped.length >= 16) return;
+            if (liveScraped.length >= maxTotal) return;
             const aTag = $(el).is("a") ? $(el) : $(el).find("a").first();
             const title = aTag.text().replace(/\s+/g, " ").trim();
             const href = aTag.attr("href") || "";
             const dateMatch = href.match(/(\d{4}-\d{2}-\d{2})$/);
-            if (!dateMatch) return; // Ignore old static navbar links without a publication date suffix
+            if (!dateMatch) return;
             const pubDate = dateMatch[1];
             if (title && title.length > 20 && title.length < 190 && !liveScraped.some((x) => x.title === title)) {
               const cls = this.classifyNewsSentiment(title, "");
+              const ents = this.extractNewsEntities(title, "");
               liveScraped.push({
                 id: `SS-LIVE-${liveScraped.length + 1}`,
                 isLive: true,
                 category: `📡 ${sourceLabel}`,
-                sector: "Market-Wide",
-                symbols: [],
+                sector: ents.sector,
+                symbols: ents.symbols,
                 title,
                 url: href.startsWith("http") ? href : `https://www.sharesansar.com/${href.replace(/^\//, "")}`,
-                summary: `Live financial headline fetched from ${sourceLabel}.`,
+                summary: `Live financial headline from ${sourceLabel}${ents.symbols.length ? ` (Impacts: ${ents.symbols.join(", ")})` : ""}.`,
                 source: sourceLabel,
                 date: pubDate,
                 sentiment: cls.sentiment,
                 horizonImpact: cls.horizonImpact,
-                actionTip: "Verify with 4 No-Trap safety checks before trading on headlines."
+                actionTip: "Automatically factored into NEPSE Quant Pro's News & Catalyst Engine."
               });
             }
           });
         } catch (_) {}
       };
 
-      parseShareSansar(ssLatestHtml, "ShareSansar Live");
-      parseShareSansar(ssShareHtml, "ShareSansar Share News");
+      parseShareSansar(ssDivHtml, "ShareSansar Dividend/Bonus", 14);
+      parseShareSansar(ssLatestHtml, "ShareSansar Live", 20);
+      parseShareSansar(ssShareHtml, "ShareSansar Share News", 24);
 
       // Load existing disk cache to preserve any source that temporarily timed out
       let previousCachedItems = [];
@@ -2088,7 +2255,15 @@ class NepseProvider {
           if (Array.isArray(parsed.items)) {
             previousCachedItems = parsed.items.map((item) => {
               const cls = this.classifyNewsSentiment(item.title, item.summary || "");
-              return { ...item, isLive: true, sentiment: cls.sentiment, horizonImpact: cls.horizonImpact };
+              const ents = this.extractNewsEntities(item.title, item.summary || "");
+              return {
+                ...item,
+                isLive: true,
+                symbols: item.symbols && item.symbols.length > 0 ? item.symbols : ents.symbols,
+                sector: item.sector && item.sector !== "Market-Wide" ? item.sector : ents.sector,
+                sentiment: cls.sentiment,
+                horizonImpact: cls.horizonImpact
+              };
             });
           }
         }

@@ -3415,6 +3415,20 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     ema9 >= ema20 * 0.994 &&
     currentPrice >= ema20 * 0.998;
 
+  const newsCat = quote.newsCatalyst || {
+    newsScore: 50,
+    hasBearishVeto: false,
+    hasBullishCatalyst: false,
+    sentiment: "🟡 NEUTRAL NEWS FLOW",
+    topHeadline: "Steady NEPSE sector & macro news flow"
+  };
+  const proNewsSafetyPassed = !newsCat.hasBearishVeto;
+  if (newsCat.hasBullishCatalyst && newsCat.directCount > 0) {
+    quantScore = Math.min(99, quantScore + 3);
+  } else if (newsCat.hasBearishVeto) {
+    quantScore = Math.max(10, quantScore - 8);
+  }
+
   const rule1Pass = masterWeightedScore >= 62 && bullishSignalsCount >= 4 && bearishSignalsCount === 0;
   const rule2Pass =
     antiChasePassed &&
@@ -3424,9 +3438,9 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     (supertrend.direction === "BULLISH" || (currentPrice >= ema20 && ema20 >= sma50)) &&
     wkScoreVal >= 60 &&
     proMicroTrendPassed;
-  const rule4Pass = fundamentalSafetyPassed && proBacktestEdgePassed && proLiquidityPassed;
+  const rule4Pass = fundamentalSafetyPassed && proBacktestEdgePassed && proLiquidityPassed && proNewsSafetyPassed;
 
-  // A stock qualifies as ⚡ IMMEDIATE BUY if and only if ALL 5 Master Rules + Pro-Trader VCP & Backtest Edge pass!
+  // A stock qualifies as ⚡ IMMEDIATE BUY if and only if ALL 5 Master Rules + Pro-Trader VCP, Backtest Edge & News Safety pass!
   const masterImmediateBuyQualified =
     !isImmediateSell &&
     !isSectorDumping &&
@@ -3438,6 +3452,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     proBacktestEdgePassed &&
     proLiquidityPassed &&
     proMicroTrendPassed &&
+    proNewsSafetyPassed &&
     (buyerCandleConfirmed || (candleCLV >= 0.42 && masterWeightedScore >= 75 && !chartPatternCMT.falseBreakoutTrap)) &&
     t2SupplyPassed &&
     inSweetSpotNow &&
@@ -3449,16 +3464,18 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
   if (masterImmediateBuyQualified && !isImmediateBuy) {
     isImmediateBuy = true;
     buyCategory = "⚡ IMMEDIATE BUY";
-    immediateBuyReason = `Pro-Trader VCP & 6-Signal Confluence (${bullishSignalsCount}/6 Bullish, Win Rate ${btWinRateVal}%, VCP Range ${vcpAvg5dRangePct}%, Score ${masterWeightedScore}/100)`;
+    immediateBuyReason = `Pro-Trader VCP, News & 6-Signal Confluence (${bullishSignalsCount}/6 Bullish, Win Rate ${btWinRateVal}%, VCP ${vcpAvg5dRangePct}%, ${newsCat.sentiment})`;
   } else if (isImmediateBuy && !masterImmediateBuyQualified) {
-    // Downgrade to BUY ON DIP if 6-Signal Master Consensus or Pro-Trader VCP/Backtest Gate vetoed chasing at LTP
+    // Downgrade to BUY ON DIP if 6-Signal Master Consensus or Pro-Trader VCP/Backtest/News Gate vetoed chasing at LTP
     isImmediateBuy = false;
     buyCategory = "🟢 BUY ON DIP";
-    immediateBuyReason = !proBacktestEdgePassed
-      ? `Pro-Trader Backtest Filter: Historical Win Rate (${btWinRateVal}%) is below 55% threshold — wait for deep support at NPR ${boundedConfluenceDipBuy}`
-      : !vcpTightnessPassed
-        ? `Pro-Trader VCP Filter: Wide 5D volatility (${vcpAvg5dRangePct}%) / lower-high distribution — wait for tight base at NPR ${boundedConfluenceDipBuy}`
-        : `6-Signal Master Filter: Wait for Unified Confluence Pullback at NPR ${boundedConfluenceDipBuy} (${bullishSignalsCount}/6 Bullish, Master Score ${masterWeightedScore}/100)`;
+    immediateBuyReason = !proNewsSafetyPassed
+      ? `Bearish News Veto (${newsCat.topHeadline}) — avoid chasing; wait for deep support at NPR ${boundedConfluenceDipBuy}`
+      : !proBacktestEdgePassed
+        ? `Pro-Trader Backtest Filter: Historical Win Rate (${btWinRateVal}%) is below 55% threshold — wait for deep support at NPR ${boundedConfluenceDipBuy}`
+        : !vcpTightnessPassed
+          ? `Pro-Trader VCP Filter: Wide 5D volatility (${vcpAvg5dRangePct}%) / lower-high distribution — wait for tight base at NPR ${boundedConfluenceDipBuy}`
+          : `6-Signal Master Filter: Wait for Unified Confluence Pullback at NPR ${boundedConfluenceDipBuy} (${bullishSignalsCount}/6 Bullish, Master Score ${masterWeightedScore}/100)`;
     if (sellCategory === "🟢 SAFE TO HOLD") {
       action = "BUY ON DIP / ACCUMULATE";
       badge = "🟢 BUY ON DIP (UPTREND INTACT)";
@@ -3738,6 +3755,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
   const sw15_mScoreVal = Number(masterConsensus?.masterScore || quantScore || 50);
   const sw15_vcpBonus = vcpTightnessPassed ? (vcpAvg5dRangePct <= 3.2 ? 6 : 3) : -12;
   const sw15_sectorBonus = sectorChangePct >= 0 ? 3 : sectorChangePct < -0.4 ? -5 : 0;
+  const sw15_newsBonus = newsCat.hasBearishVeto ? -15 : newsCat.hasBullishCatalyst ? (newsCat.directCount > 0 ? 4 : 2) : 0;
 
   const swing15Score = Math.min(
     99,
@@ -3749,7 +3767,8 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
           Math.min(100, sw15_btWin * 1.15) * 0.24 +
           Math.min(100, Math.max(30, sw15_fRoe * 3.5 + (sw15_fEps > 15 ? 25 : sw15_fEps > 8 ? 15 : 0))) * 0.18 +
           sw15_vcpBonus +
-          sw15_sectorBonus
+          sw15_sectorBonus +
+          sw15_newsBonus
       )
     )
   );
@@ -3761,6 +3780,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
       ema9 >= ema20 * 0.99 &&
       vcpTightnessPassed &&
       proLiquidityPassed &&
+      proNewsSafetyPassed &&
       rsi14 >= 44 &&
       rsi14 <= 66 &&
       quantScore >= 65 &&
@@ -3770,15 +3790,17 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
   );
 
   const proTraderGrade =
-    is15DaySwing && isImmediateBuy && vcpAvg5dRangePct <= 3.8 && sw15_btWin >= 65
-      ? "A+ INSTITUTIONAL VCP"
-      : is15DaySwing
-        ? "A PRO 15D SWING"
-        : !vcpTightnessPassed
-          ? "C WHIPSAW / WIDE RANGE"
-          : !proBacktestEdgePassed
-            ? "C LOW WIN-RATE HISTORY"
-            : "B WATCHLIST / DIP";
+    !proNewsSafetyPassed
+      ? "⛔ BEARISH NEWS VETO"
+      : is15DaySwing && isImmediateBuy && vcpAvg5dRangePct <= 3.8 && sw15_btWin >= 65
+        ? "A+ INSTITUTIONAL VCP"
+        : is15DaySwing
+          ? "A PRO 15D SWING"
+          : !vcpTightnessPassed
+            ? "C WHIPSAW / WIDE RANGE"
+            : !proBacktestEdgePassed
+              ? "C LOW WIN-RATE HISTORY"
+              : "B WATCHLIST / DIP";
 
   const swing15Day = {
     is15DaySwing,
@@ -3788,14 +3810,19 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     vcpTightnessPassed,
     proBacktestEdgePassed,
     proLiquidityPassed,
+    proNewsSafetyPassed,
+    newsSentiment: newsCat.sentiment,
+    newsHeadline: newsCat.topHeadline,
     swing15Badge:
-      proTraderGrade === "A+ INSTITUTIONAL VCP"
-        ? "🏆 A+ INSTITUTIONAL VCP"
-        : is15DaySwing
-          ? "🚀 15-DAY PROFIT PICK"
-          : !isImmediateSell && supertrend.direction === "BULLISH" && quantScore >= 58
-            ? "🟢 15D WATCHLIST"
-            : "⏳ WAIT / AVOID",
+      !proNewsSafetyPassed
+        ? "⛔ BEARISH NEWS VETO"
+        : proTraderGrade === "A+ INSTITUTIONAL VCP"
+          ? "🏆 A+ INSTITUTIONAL VCP"
+          : is15DaySwing
+            ? "🚀 15-DAY PROFIT PICK"
+            : !isImmediateSell && supertrend.direction === "BULLISH" && quantScore >= 58
+              ? "🟢 15D WATCHLIST"
+              : "⏳ WAIT / AVOID",
     horizonTradingDays: 15,
     primaryBuy60Pct: exactBuyPrice,
     backupDip40Pct: exactBackupDipPrice,
@@ -3814,6 +3841,7 @@ function analyzeStock(quote, rawBars, portfolioCapital = 100000) {
     ltp: currentPrice,
     pointChange: quote.pointChange,
     percentageChange: quote.percentageChange,
+    newsCatalyst: newsCat,
     marketRegime: {
       sectorChangePct,
       nepseChangePct,

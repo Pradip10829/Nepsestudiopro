@@ -214,7 +214,7 @@ function buildIncrementalDashboardSignals(quotes) {
 
   const signals = quotes
     .map((q) => {
-      const stockKey = `${q.ltp}:${q.high}:${q.low}:${q.prevClose}:${q.volume}:${q.sectorChangePct || 0}`;
+      const stockKey = `${q.ltp}:${q.high}:${q.low}:${q.prevClose}:${q.volume}:${q.sectorChangePct || 0}:${q.newsCatalyst?.newsScore || 50}`;
       const cached = perStockSignalCache.get(q.symbol);
       if (cached && cached.stockKey === stockKey) {
         return cached.signal;
@@ -224,6 +224,7 @@ function buildIncrementalDashboardSignals(quotes) {
       if (!a) return null;
       const enriched = {
         ...a,
+        newsCatalyst: q.newsCatalyst || a.newsCatalyst || null,
         recentBars: Array.isArray(a.recentBars) ? a.recentBars.slice(-18) : [],
         executionMatrix: a.executionMatrix ? { exits: a.executionMatrix.exits } : null,
         weeklyTrading: a.weeklyTrading ? { ...a.weeklyTrading, weeklyBars: undefined } : null,
@@ -361,7 +362,10 @@ const requestHandler = async (req, res) => {
       const t0 = Date.now();
       const forceRefresh = Boolean(parsedUrl.query.refresh);
       if (forceRefresh) {
-        await nepseProvider.refreshLiveQuotes(true);
+        await Promise.all([
+          nepseProvider.refreshLiveQuotes(true),
+          nepseProvider.getNewsFeed("", true)
+        ]);
       }
       const [market, quotes, newsFeed] = await Promise.all([
         nepseProvider.getMarketSummary(),
