@@ -290,7 +290,10 @@ function answerPredictionQuery(queryText, nepseProvider, analyzedSignals = []) {
     if (sig) {
       if (isSell) {
         const sellUrgency = sig.sellUrgencyScore || 85;
-        const whySell = sig.immediateSellReason || (Array.isArray(sig.whySellBullets) && sig.whySellBullets.length > 0 ? sig.whySellBullets.join("; ") : "Bearish trend structure / Momentum rejection");
+        const ind = sig.indicators || {};
+        const bullets = Array.isArray(sig.whySellBullets) && sig.whySellBullets.length > 0
+          ? sig.whySellBullets.map(b => `  • ${b}`).join("\n")
+          : `  • Price NPR ${ltp} trading below 20 EMA (NPR ${ind.ema20 || "N/A"}) and 50 EMA (NPR ${ind.ema50 || "N/A"})\n  • SuperTrend is ${ind.supertrendDir || "BEARISH"} @ NPR ${ind.supertrend || "N/A"}`;
         const s1 = sig.tradePlan?.support1 || (ltp * 0.94).toFixed(1);
         const s2 = sig.tradePlan?.support2 || (ltp * 0.88).toFixed(1);
         return (
@@ -302,7 +305,11 @@ function answerPredictionQuery(queryText, nepseProvider, analyzedSignals = []) {
           `• *Buy Entry:* ❌ *NO BUY ENTRY (DO NOT BUY — SELL SIGNAL ACTIVE)*\n` +
           `• *Exit Action (Sell Price):* *Exit at LTP NPR ${ltp}*\n` +
           `• *Downside Drop Risk:* S1 @ NPR ${s1} ➔ S2 @ NPR ${s2}\n` +
-          `• *Why Sell:* ${whySell}\n` +
+          `• *Key Technical Breakdown Factors:*\n` +
+          `  1. *Trend:* Price < 20 EMA (Rs ${ind.ema20}) < 50 EMA (Rs ${ind.ema50}) | SuperTrend: *${ind.supertrendDir}* @ Rs ${ind.supertrend}\n` +
+          `  2. *Momentum & Vol:* RSI 14 = *${ind.rsi14}* (< 50 Bearish) | Volume Ratio = *${ind.volRatio}x* Avg (Severe buyer dry-up)\n` +
+          `  3. *Valuation Risk:* P/E Ratio = *${q.peRatio ? q.peRatio + 'x' : 'Elevated'}* (Expensive vs Sector Average)\n` +
+          `• *Institutional Sell Triggers:*\n${bullets}\n` +
           `• *Verdict:* 🛑 **100% LEAVE IT!** Zero fresh buy allowed. If holding existing shares, exit at LTP before downside breakdown.`
         );
       }
