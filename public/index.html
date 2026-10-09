@@ -6180,6 +6180,17 @@
           volume: b.v
         }));
         drawWhiteChart(mappedBars, s);
+      } else {
+        // Immediate fallback so canvas is NEVER blank while network fetch is in progress!
+        const fallbackBar = {
+          date: new Date().toISOString().slice(0, 10),
+          open: Number(s.open || s.prevClose || s.ltp || 100),
+          high: Number(s.high || s.ltp || 100),
+          low: Number(s.low || s.ltp || 100),
+          close: Number(s.ltp || 100),
+          volume: Number(s.volume || 1000)
+        };
+        drawWhiteChart([fallbackBar], s);
       }
 
       if (!skipChartFetch) {
@@ -7297,31 +7308,43 @@
         ? Number(wkPlan.nextWeekTarget2)
         : Number(exExec.exactSellTarget2 || sig?.executionMatrix?.exits?.exit2?.price || (target1Price * 1.05));
 
-      let minP = Math.min(...recent.map(b => b.low));
-      let maxP = Math.max(...recent.map(b => b.high));
+      const lows = recent.map(b => Number(b.low ?? b.l ?? b.close ?? b.c ?? 0)).filter(v => v > 0);
+      const highs = recent.map(b => Number(b.high ?? b.h ?? b.close ?? b.c ?? 0)).filter(v => v > 0);
+      let minP = lows.length > 0 ? Math.min(...lows) : (ltp > 0 ? ltp * 0.95 : 100);
+      let maxP = highs.length > 0 ? Math.max(...highs) : (ltp > 0 ? ltp * 1.05 : 110);
       if (isIntraday1D && prevCloseRef > 0) {
         minP = Math.min(minP, prevCloseRef * 0.996);
         maxP = Math.max(maxP, prevCloseRef * 1.004);
       }
       if (chartOverlays.bb && !isIntraday1D) {
-        minP = Math.min(minP, ...bbLoSlice.filter(v => v > 0));
-        maxP = Math.max(maxP, ...bbUpSlice.filter(v => v > 0));
+        const bbLoValid = bbLoSlice.filter(v => Number(v) > 0);
+        const bbUpValid = bbUpSlice.filter(v => Number(v) > 0);
+        if (bbLoValid.length > 0) minP = Math.min(minP, ...bbLoValid);
+        if (bbUpValid.length > 0) maxP = Math.max(maxP, ...bbUpValid);
       }
       if (chartOverlays.supertrend && !isIntraday1D) {
-        minP = Math.min(minP, ...stValSlice.filter(v => v > 0));
-        maxP = Math.max(maxP, ...stValSlice.filter(v => v > 0));
+        const stValid = stValSlice.filter(v => Number(v) > 0);
+        if (stValid.length > 0) {
+          minP = Math.min(minP, ...stValid);
+          maxP = Math.max(maxP, ...stValid);
+        }
       }
       if (chartOverlays.ladder && !isIntraday1D) {
-        if (stopPrice > 0) minP = Math.min(minP, stopPrice * 0.988);
-        if (supportPrice > 0) minP = Math.min(supportPrice * 0.99, minP);
-        if (target1Price > 0) maxP = Math.max(maxP, target1Price * 1.012);
-        if (target2Price > 0 && target2Price <= ltp * 1.24) {
+        if (stopPrice > 0 && stopPrice < ltp * 2) minP = Math.min(minP, stopPrice * 0.988);
+        if (supportPrice > 0 && supportPrice < ltp * 2) minP = Math.min(supportPrice * 0.99, minP);
+        if (target1Price > 0 && target1Price < ltp * 2) maxP = Math.max(maxP, target1Price * 1.012);
+        if (target2Price > 0 && target2Price <= ltp * 1.35) {
           maxP = Math.max(maxP, target2Price * 1.01);
         }
       }
 
+      if (isNaN(minP) || !isFinite(minP) || minP <= 0) minP = ltp > 0 ? ltp * 0.95 : 100;
+      if (isNaN(maxP) || !isFinite(maxP) || maxP <= minP) maxP = minP * 1.08;
       const range = Math.max(0.5, maxP - minP);
-      const yOf = p => padT + pricePlotH - ((p - minP) / range) * pricePlotH;
+      const yOf = p => {
+        const val = Number(p || minP);
+        return padT + pricePlotH - ((val - minP) / range) * pricePlotH;
+      };
 
       ctx.fillStyle = isDark ? '#080b11' : '#ffffff';
       ctx.fillRect(0, 0, W, H);
@@ -7544,7 +7567,11 @@
       // 3. Candlesticks (with Today's Live Candle highlight on the final bar)
       recent.forEach((b, idx) => {
         const x = padL + idx * stepX + stepX / 2;
-        const isBull = b.close >= b.open;
+        const bClose = Number(b.close ?? b.c ?? b.open ?? b.o ?? ltp);
+        const bOpen = Number(b.open ?? b.o ?? bClose);
+        const bHigh = Math.max(Number(b.high ?? b.h ?? Math.max(bOpen, bClose)), bOpen, bClose);
+        const bLow = Math.min(Number(b.low ?? b.l ?? Math.min(bOpen, bClose)), bOpen, bClose);
+        const isBull = bClose >= bOpen;
         const isLatestBar = idx === recent.length - 1;
         const color = isBull ? '#10b981' : '#f43f5e';
 
@@ -7558,12 +7585,12 @@
         ctx.strokeStyle = color;
         ctx.lineWidth = (idx === hoverIdx || isLatestBar) ? 2 : 1.25;
         ctx.beginPath();
-        ctx.moveTo(x, yOf(b.high));
-        ctx.lineTo(x, yOf(b.low));
+        ctx.moveTo(x, yOf(bHigh));
+        ctx.lineTo(x, yOf(bLow));
         ctx.stroke();
 
-        const yOpen = yOf(b.open);
-        const yClose = yOf(b.close);
+        const yOpen = yOf(bOpen);
+        const yClose = yOf(bClose);
         const top = Math.min(yOpen, yClose);
         const h = Math.max(2, Math.abs(yClose - yOpen));
         ctx.fillStyle = isBull ? (isDark ? '#10b981' : '#a7f3d0') : (isDark ? '#f43f5e' : '#fecdd3');
