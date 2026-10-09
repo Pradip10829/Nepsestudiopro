@@ -7,6 +7,7 @@ const nepseProvider = require("./nepseProvider");
 const { analyzeStock, normalizeBarsForBookClose } = require("./signalEngine");
 const { handleMessage, getAppState, saveState } = require("./commandHandler");
 const whatsappClient = require("./whatsappClient");
+const predictionJournal = require("./predictionJournal");
 
 const PORT = process.env.PORT || 4050;
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -512,6 +513,26 @@ const requestHandler = async (req, res) => {
         signal: enrichedSignal,
         news: stockNews.items || []
       });
+    } catch (err) {
+      return sendJson(res, 500, { ok: false, error: err.message });
+    }
+  }
+
+  // 2c. Daily Prediction Journal & Forward Accuracy Auditor API
+  if (pathname === "/api/prediction-journal" && req.method === "GET") {
+    try {
+      const journal = predictionJournal.loadJournal();
+      return sendJson(res, 200, { ok: true, journal });
+    } catch (err) {
+      return sendJson(res, 500, { ok: false, error: err.message });
+    }
+  }
+
+  if (pathname === "/api/prediction-journal/audit" && req.method === "GET") {
+    try {
+      const targetDate = parsedUrl.query.date || null;
+      const audit = predictionJournal.auditSession(targetDate, nepseProvider);
+      return sendJson(res, 200, { ok: true, audit });
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: err.message });
     }

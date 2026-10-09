@@ -3,6 +3,7 @@ const path = require("path");
 const nepseProvider = require("./nepseProvider");
 const { analyzeStock } = require("./signalEngine");
 const { calculateBuy, calculateSell } = require("./sebonCalculator");
+const predictionJournal = require("./predictionJournal");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
@@ -94,6 +95,33 @@ async function handleMessage(rawText, senderId = "default") {
     lower === "15 days profit"
   ) {
     return await get15DaySwingMessage();
+  }
+
+  // 3d. Daily Prediction Journal & Forward Accuracy Auditor (!audit, !truth, !accuracy, !predictions)
+  if (
+    [
+      "!audit",
+      "/audit",
+      "audit",
+      "!accuracy",
+      "/accuracy",
+      "accuracy",
+      "!truth",
+      "/truth",
+      "truth",
+      "!predictions",
+      "/predictions",
+      "predictions",
+      "!journal"
+    ].includes(cmd) ||
+    lower === "how accurate" ||
+    lower === "yesterday stocks" ||
+    lower.includes("audit yesterday") ||
+    lower.includes("how accurate our")
+  ) {
+    const allQuotes = await nepseProvider.getAllQuotes();
+    const allAnalyses = allQuotes.map((q) => analyzeStock(q, nepseProvider.getHistoricalBars(q.symbol))).filter(Boolean);
+    return predictionJournal.answerPredictionQuery(text, nepseProvider, allAnalyses);
   }
 
   // 4. Sector Summary
@@ -1130,6 +1158,25 @@ async function handleNaturalLanguageQuery(queryText) {
 
   const allQuotes = await nepseProvider.getAllQuotes();
   const allAnalyses = allQuotes.map((q) => analyzeStock(q, nepseProvider.getHistoricalBars(q.symbol))).filter(Boolean);
+
+  if (
+    qLower.includes("accurate") ||
+    qLower.includes("accuracy") ||
+    qLower.includes("yesterday") ||
+    qLower.includes("audit") ||
+    qLower.includes("ghl") ||
+    qLower.includes("went up") ||
+    qLower.includes("goes up") ||
+    qLower.includes("did it go") ||
+    qLower.includes("right or not") ||
+    qLower.includes("leave it") ||
+    qLower.includes("100% result") ||
+    qLower.includes("how did") ||
+    qLower.includes("predict and") ||
+    qLower.includes("predict how")
+  ) {
+    return predictionJournal.answerPredictionQuery(queryText, nepseProvider, allAnalyses);
+  }
 
   for (const a of allAnalyses) {
     const symRegex = new RegExp(`\\b${a.symbol.toLowerCase()}\\b`);

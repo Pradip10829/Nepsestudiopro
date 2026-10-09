@@ -2535,24 +2535,27 @@
               </div>
             </div>
 
-            <!-- 3. WhatsApp Bot Command Studio -->
+            <!-- 3. WhatsApp Bot Command Studio & AI Prediction Truth Auditor -->
             <div class="yt-upnext-card" id="botConsoleSection" style="display:none;">
-              <div class="card-header">
-                <span class="card-title" style="font-size:13px;">WhatsApp Bot Studio</span>
+              <div class="card-header" style="flex-direction:column; align-items:flex-start; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                  <span class="card-title" style="font-size:13px; color:#38bdf8; font-weight:800;">🤖 AI Copilot &amp; Prediction Truth Auditor</span>
+                  <span class="badge badge-green" style="font-size:9.5px;">LIVE AUDIT</span>
+                </div>
                 <div style="display:flex; gap:4px; flex-wrap:wrap;">
-                  <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!weekly')">!weekly</button>
-                  <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!smc')">!smc</button>
-                  <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!advisor')">!advisor</button>
-                  <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!immediate')">!immediate</button>
-                  <button class="btn btn-soft-red" style="padding:3px 8px; font-size:10.5px;" onclick="runQuickCommand('!immediatesell')">!sell</button>
+                  <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10px; font-weight:800;" onclick="runQuickCommand('how accurate our yesterday stocks')">🤖 Audit Yesterday</button>
+                  <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10px; font-weight:800;" onclick="runQuickCommand('is ghl in immediate buy, today did it go up or leave it?')">🔎 GHL Status (Buy or Leave?)</button>
+                  <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10px; font-weight:800;" onclick="runQuickCommand('which stocks to 100% leave it today')">🎯 Leave-It List</button>
+                  <button class="btn btn-soft-green" style="padding:3px 8px; font-size:10px;" onclick="runQuickCommand('!immediate')">!immediate</button>
+                  <button class="btn btn-soft-red" style="padding:3px 8px; font-size:10px;" onclick="runQuickCommand('!immediatesell')">!sell</button>
                 </div>
               </div>
               <div class="card-body" style="padding:12px; display:flex; flex-direction:column; gap:8px;">
                 <form onsubmit="submitCommandForm(event)" style="display:flex; gap:6px;">
-                  <input type="text" id="cmdInput" class="input-box mono" style="flex:1; font-size:12px;" placeholder="Type symbol or !immediate..." />
-                  <button type="submit" class="btn btn-green" style="padding:6px 12px; font-size:12px;">Run</button>
+                  <input type="text" id="cmdInput" class="input-box mono" style="flex:1; font-size:12px;" placeholder="Ask anything: 'how accurate yesterday stocks', 'is GHL buy or leave it'..." />
+                  <button type="submit" class="btn btn-green" style="padding:6px 12px; font-size:12px; font-weight:800;">Ask AI</button>
                 </form>
-                <div class="cmd-output" id="cmdOutputBox" style="max-height:420px;">Click any quick command above or type a stock symbol to generate a full report.</div>
+                <div class="cmd-output" id="cmdOutputBox" style="max-height:460px; font-size:11.5px; line-height:1.45;">Click any quick button above (e.g. "🤖 Audit Yesterday" or "🔎 GHL Status") or type any question in plain English/Nepali.</div>
               </div>
             </div>
 
