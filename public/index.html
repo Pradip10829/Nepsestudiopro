@@ -112,6 +112,92 @@
       --chart-text: #64748b;
     }
 
+    /* Theme Pill Switcher */
+    .theme-selector-pill {
+      display: inline-flex;
+      align-items: center;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .theme-pill-opt {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 16px;
+      border: none;
+      cursor: pointer;
+      font-size: 11.5px;
+      font-weight: 700;
+      background: transparent;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+    [data-theme="dark"] .theme-pill-opt.dark-opt,
+    [data-theme="dark"] .theme-pill-opt#themeOptDark {
+      background: #1e293b;
+      color: #38bdf8;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    }
+    [data-theme="light"] .theme-pill-opt.light-opt,
+    [data-theme="light"] .theme-pill-opt#themeOptLight {
+      background: #ffffff;
+      color: #0284c7;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
+
+    /* Broker Workbench Theme Adaptations */
+    .broker-workbench-card {
+      background: linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.94));
+      border: 1px solid rgba(56,189,248,0.45);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    [data-theme="light"] .broker-workbench-card {
+      background: linear-gradient(135deg, #ffffff, #f8fafc) !important;
+      border: 1px solid #cbd5e1 !important;
+      box-shadow: 0 4px 20px rgba(15,23,42,0.06) !important;
+    }
+    .broker-panel-card {
+      background: rgba(15,23,42,0.7);
+    }
+    [data-theme="light"] .broker-panel-card {
+      background: #ffffff !important;
+      border-color: #cbd5e1 !important;
+      box-shadow: 0 2px 8px rgba(15,23,42,0.04) !important;
+    }
+    .broker-dossier-card {
+      background: rgba(18,24,38,0.85);
+    }
+    [data-theme="light"] .broker-dossier-card {
+      background: #f8fafc !important;
+      border-color: #cbd5e1 !important;
+    }
+    .broker-inner-box {
+      background: rgba(12,20,32,0.6);
+    }
+    [data-theme="light"] .broker-inner-box {
+      background: #ffffff !important;
+      border-color: #e2e8f0 !important;
+    }
+    .broker-master-dir {
+      background: rgba(15,23,42,0.65);
+    }
+    [data-theme="light"] .broker-master-dir {
+      background: #ffffff !important;
+      border-color: #e2e8f0 !important;
+    }
+    .broker-th-sticky {
+      background: rgba(15,23,42,0.98);
+      color: var(--text-secondary);
+    }
+    [data-theme="light"] .broker-th-sticky {
+      background: #f1f5f9 !important;
+      color: #475569 !important;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -1949,9 +2035,14 @@
         <span class="text-muted" style="font-size:11px;">(<span id="totalStocksCount">286</span>)</span>
       </div>
 
-      <button type="button" class="yt-icon-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Switch Dark / Light Theme" style="border:1px solid var(--border);">
-        <svg class="svg-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-      </button>
+      <div class="theme-selector-pill" id="themeSelectorContainer" title="Choose Theme: Dark or White">
+        <button type="button" class="theme-pill-opt dark-opt active" id="themeOptDark" onclick="setAppTheme('dark')" title="Dark Theme">
+          <span>🌙</span> Dark
+        </button>
+        <button type="button" class="theme-pill-opt light-opt" id="themeOptLight" onclick="setAppTheme('light')" title="White / Light Theme">
+          <span>☀️</span> White
+        </button>
+      </div>
       <button type="button" class="btn btn-soft-green" onclick="openQrModal()" id="waStatusBtn" style="padding:6px 12px; font-size:11.5px;">
         WhatsApp Bot
       </button>
@@ -3400,23 +3491,43 @@
       }, 210);
     }
 
-    function toggleTheme() {
-      const html = document.documentElement;
-      const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-      html.setAttribute('data-theme', next);
+    function setAppTheme(theme) {
+      const mode = (theme === 'white' || theme === 'light') ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', mode);
       try {
-        localStorage.setItem('nepsetube_theme', next);
+        localStorage.setItem('nepsetube_theme', mode);
       } catch (_) {}
+      updateThemeButtons(mode);
       if (activeChartBars.length > 0 && activeChartSignal) {
         drawWhiteChart(activeChartBars, activeChartSignal);
       }
     }
 
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      setAppTheme(current === 'light' ? 'dark' : 'light');
+    }
+
+    function updateThemeButtons(mode) {
+      const darkBtn = document.getElementById('themeOptDark');
+      const lightBtn = document.getElementById('themeOptLight');
+      if (darkBtn && lightBtn) {
+        if (mode === 'light') {
+          darkBtn.classList.remove('active');
+          lightBtn.classList.add('active');
+        } else {
+          lightBtn.classList.remove('active');
+          darkBtn.classList.add('active');
+        }
+      }
+    }
+
     (function initSavedTheme() {
       try {
-        const saved = localStorage.getItem('nepsetube_theme');
+        const saved = localStorage.getItem('nepsetube_theme') || 'dark';
         if (saved === 'light' || saved === 'dark') {
           document.documentElement.setAttribute('data-theme', saved);
+          setTimeout(() => updateThemeButtons(saved), 50);
         }
       } catch (_) {}
     })();
@@ -4392,19 +4503,41 @@
     // 🏢 BROKER SUMMARY & FLOORSHEET RADAR MODULE
     // =========================================================================
     window.__brokerSummaryCache = null;
+    window.__brokerSummaryCacheMap = {};
     window.__selectedBrokerId = 58;
     window.__brokerFilterSearch = '';
+    window.__brokerTimeframe = '1D';
+    window.__brokerDateStart = '';
+    window.__brokerDateEnd = '';
     window.__isFetchingBrokerSummary = false;
 
     async function fetchBrokerSummary(force = false) {
       if (window.__isFetchingBrokerSummary) return;
-      if (!force && window.__brokerSummaryCache) return window.__brokerSummaryCache;
+      const tf = window.__brokerTimeframe || '1D';
+      const sDate = window.__brokerDateStart || '';
+      const eDate = window.__brokerDateEnd || '';
+      const cacheKey = `${tf}_${sDate}_${eDate}`;
+
+      if (!force && window.__brokerSummaryCacheMap && window.__brokerSummaryCacheMap[cacheKey]) {
+        window.__brokerSummaryCache = window.__brokerSummaryCacheMap[cacheKey];
+        if (activeCategory === 'BROKER_SUMMARY') {
+          renderBrokerSummaryBanner();
+        }
+        return window.__brokerSummaryCache;
+      }
+
       try {
         window.__isFetchingBrokerSummary = true;
-        const res = await fetch('/api/broker-summary');
+        let url = `/api/broker-summary?timeframe=${encodeURIComponent(tf)}`;
+        if (sDate) url += `&startDate=${encodeURIComponent(sDate)}`;
+        if (eDate) url += `&endDate=${encodeURIComponent(eDate)}`;
+
+        const res = await fetch(url);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         if (data && data.ok && data.summary) {
+          if (!window.__brokerSummaryCacheMap) window.__brokerSummaryCacheMap = {};
+          window.__brokerSummaryCacheMap[cacheKey] = data.summary;
           window.__brokerSummaryCache = data.summary;
           const cntEl = document.getElementById('cnt-BROKER_SUMMARY');
           if (cntEl) cntEl.textContent = data.summary.totalBrokersActive || 88;
@@ -4419,6 +4552,28 @@
         window.__isFetchingBrokerSummary = false;
       }
       return null;
+    }
+
+    function setBrokerTimeframe(tf) {
+      window.__brokerTimeframe = tf;
+      window.__brokerDateStart = '';
+      window.__brokerDateEnd = '';
+      fetchBrokerSummary(true);
+    }
+
+    function applyBrokerCustomDateRange() {
+      const sInput = document.getElementById('brokerDateStart');
+      const eInput = document.getElementById('brokerDateEnd');
+      const sVal = sInput ? sInput.value : '';
+      const eVal = eInput ? eInput.value : '';
+      if (!sVal && !eVal) {
+        alert('Please choose at least a start date or end date.');
+        return;
+      }
+      window.__brokerTimeframe = 'CUSTOM';
+      window.__brokerDateStart = sVal;
+      window.__brokerDateEnd = eVal;
+      fetchBrokerSummary(true);
     }
 
     function selectBrokerSummary(brokerNum, scrollIntoView = false) {
@@ -4463,6 +4618,11 @@
       const allBrokers = summary.allBrokers || [];
       const top5BuysAll = summary.top5HighestBoughtStocks || [];
       const top5SellsAll = summary.top5HighestSoldStocks || [];
+      const curTf = window.__brokerTimeframe || '1D';
+      const isCustomActive = curTf === 'CUSTOM' || Boolean(window.__brokerDateStart || window.__brokerDateEnd);
+
+      const defaultStart = window.__brokerDateStart || summary.dateRange?.startDate || '2026-09-15';
+      const defaultEnd = window.__brokerDateEnd || summary.dateRange?.endDate || '2026-10-05';
 
       // Currently selected broker
       const selBrokerId = Number(window.__selectedBrokerId || 58);
@@ -4479,31 +4639,66 @@
         ? allBrokers.filter(b => String(b.broker).includes(search) || (b.name || '').toLowerCase().includes(search))
         : allBrokers;
 
+      banner.className = 'card broker-workbench-card';
       banner.innerHTML = `
         <!-- HEADER BAR -->
-        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--border);">
           <div>
-            <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">
-              <span class="badge" style="background:rgba(14,165,233,0.22); color:#38bdf8; font-weight:800; font-size:11px; padding:4px 10px; border:1px solid rgba(56,189,248,0.4);">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span class="badge" style="background:rgba(14,165,233,0.18); color:#0284c7; font-weight:800; font-size:11px; padding:4px 10px; border:1px solid rgba(56,189,248,0.4);">
                 🏢 NEPSE INSTITUTIONAL FLOORSHEET RADAR
               </span>
               <span style="font-weight:900; font-size:16px; color:var(--text-main); letter-spacing:-0.2px;">
                 All ${summary.totalBrokersActive || 88} Active Brokers Live Summary
               </span>
-              <span class="badge" style="background:rgba(16,185,129,0.15); color:var(--green-main); font-size:10.5px;">
-                🟢 100% Real Trade Aggregation (${summary.totalTrackedStocks || 279} Equities)
+              <span class="badge badge-green" style="font-size:10.5px; font-weight:700;">
+                🟢 ${summary.timeframeLabel || 'Daily Live'} (${summary.dateRange?.startDate} to ${summary.dateRange?.endDate})
               </span>
             </div>
-            <div style="font-size:12px; color:var(--text-secondary); margin-top:5px; max-width:850px;">
-              Track which brokers are heavily buying or selling today. View market-wide Top 5 Highest Bought &amp; Sold stocks, deep-dive into each individual broker one-by-one, or explore the live directory across all 88 brokerage houses.
+            <div style="font-size:12px; color:var(--text-secondary); margin-top:4px; max-width:850px;">
+              Track which brokers are heavily buying or selling. Switch between <strong>1 Week</strong>, <strong>Best 15 Days</strong>, <strong>Best 1 Month</strong>, or <strong>Custom Date Range</strong> to uncover accumulation &amp; distribution trends.
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <div style="background:rgba(37,211,102,0.12); border:1px solid rgba(37,211,102,0.3); border-radius:6px; padding:4px 9px; font-size:11px; color:#25d366; font-weight:700;">
-              📱 WhatsApp: Send <code>!brokers</code> or <code>!broker 58</code>
+            <div style="background:rgba(37,211,102,0.12); border:1px solid rgba(37,211,102,0.3); border-radius:6px; padding:4px 9px; font-size:11px; color:#10b981; font-weight:700;">
+              📱 WhatsApp: <code>!brokers 15d</code> or <code>!broker 58 1w</code>
             </div>
-            <button type="button" class="btn btn-ghost" style="padding:5px 10px; font-size:11.5px;" onclick="fetchBrokerSummary(true)">↻ Refresh Radar</button>
+            <button type="button" class="btn btn-ghost" style="padding:5px 10px; font-size:11.5px;" onclick="fetchBrokerSummary(true)">↻ Refresh</button>
             <button type="button" class="btn btn-ghost" style="padding:5px 10px; font-size:11.5px;" onclick="setCategoryFilter('ALL')">✕ Close Category</button>
+          </div>
+        </div>
+
+        <!-- TIMEFRAME & CUSTOM DATE RANGE TOOLBAR -->
+        <div style="background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:18px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+          <!-- Left: Preset Buttons -->
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span style="font-size:12px; font-weight:800; color:var(--text-main); margin-right:4px;">⏱️ Timeframe:</span>
+            <button type="button" class="btn ${curTf === '1D' && !isCustomActive ? 'btn-green' : 'btn-ghost'}" style="padding:4px 11px; font-size:11.5px; font-weight:700;" onclick="setBrokerTimeframe('1D')">
+              ⚡ Daily Live
+            </button>
+            <button type="button" class="btn ${curTf === '1W' ? 'btn-green' : 'btn-ghost'}" style="padding:4px 11px; font-size:11.5px; font-weight:700;" onclick="setBrokerTimeframe('1W')">
+              📅 1 Week (7 Days)
+            </button>
+            <button type="button" class="btn ${curTf === '15D' ? 'btn-green' : 'btn-ghost'}" style="padding:4px 11px; font-size:11.5px; font-weight:700; border-color:rgba(16,185,129,0.5);" onclick="setBrokerTimeframe('15D')">
+              🚀 Best 15 Days
+            </button>
+            <button type="button" class="btn ${curTf === '1M' ? 'btn-green' : 'btn-ghost'}" style="padding:4px 11px; font-size:11.5px; font-weight:700;" onclick="setBrokerTimeframe('1M')">
+              📈 Best 1 Month
+            </button>
+          </div>
+
+          <!-- Right: Select Date Between Start & End -->
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:11.5px; font-weight:700; color:var(--text-secondary);">📅 Select Date Between:</span>
+            <div style="display:flex; align-items:center; gap:5px;">
+              <input type="date" id="brokerDateStart" class="input-box" value="${defaultStart}" style="padding:4px 8px; font-size:11px; width:130px; background:var(--bg-input); color:var(--text-main); border:1px solid var(--border);" />
+              <span style="color:var(--text-muted); font-size:11px;">to</span>
+              <input type="date" id="brokerDateEnd" class="input-box" value="${defaultEnd}" style="padding:4px 8px; font-size:11px; width:130px; background:var(--bg-input); color:var(--text-main); border:1px solid var(--border);" />
+            </div>
+            <button type="button" class="btn btn-green" style="padding:4px 12px; font-size:11.5px; font-weight:700;" onclick="applyBrokerCustomDateRange()">
+              Apply Range
+            </button>
+            ${isCustomActive ? `<button type="button" class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" onclick="setBrokerTimeframe('1D')">✕ Reset to Live</button>` : ''}
           </div>
         </div>
 
@@ -4511,14 +4706,14 @@
         <div style="margin-bottom:20px;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
             <div style="font-size:13.5px; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:7px;">
-              <span>🏆 Market-Wide Leaders: Top 5 Highest Bought &amp; Top 5 Highest Sold Stocks (All Brokers Combined)</span>
+              <span>🏆 Market-Wide Leaders: Top 5 Highest Bought &amp; Top 5 Highest Sold Stocks (${summary.timeframeLabel})</span>
             </div>
-            <span style="font-size:11px; color:var(--text-secondary);">Aggregated from full NEPSE daily floorsheet</span>
+            <span style="font-size:11px; color:var(--text-secondary);">Aggregated from full NEPSE floorsheet records</span>
           </div>
 
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:14px;">
             <!-- TOP 5 HIGHEST BOUGHT STOCKS (ALL BROKERS) -->
-            <div style="background:rgba(15,23,42,0.7); border:1px solid rgba(16,185,129,0.35); border-radius:8px; padding:12px; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+            <div class="broker-panel-card" style="border:1px solid rgba(16,185,129,0.35); border-radius:8px; padding:12px;">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
                 <div style="font-weight:800; font-size:13px; color:var(--green-main); display:flex; align-items:center; gap:6px;">
                   <span>🟢 TOP 5 HIGHEST BOUGHT STOCKS</span>
@@ -4529,7 +4724,7 @@
               <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
                   <thead>
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.08); color:var(--text-secondary); font-size:10px; text-transform:uppercase;">
+                    <tr style="border-bottom:1px solid var(--border); color:var(--text-secondary); font-size:10px; text-transform:uppercase;">
                       <th style="text-align:left; padding:5px 6px;"># Rank</th>
                       <th style="text-align:left; padding:5px 6px;">Symbol &amp; Sector</th>
                       <th class="right" style="padding:5px 6px;">Buy Turnover</th>
@@ -4540,7 +4735,7 @@
                   </thead>
                   <tbody>
                     ${top5BuysAll.map((s, idx) => `
-                      <tr style="border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer;" onclick="selectStock('${s.symbol}', true)">
+                      <tr style="border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.04)); cursor:pointer;" onclick="selectStock('${s.symbol}', true)">
                         <td style="padding:6px; font-weight:800; color:var(--green-main);">#${idx + 1}</td>
                         <td style="padding:6px;">
                           <div style="font-weight:800; color:var(--text-main); font-size:12.5px;">${s.symbol} <span style="font-weight:600; color:#38bdf8; font-size:11.5px;">(${s.companyName || s.symbol})</span> <span class="mono text-muted" style="font-size:10.5px;">(Rs ${fmtNum(s.ltp, 1)})</span></div>
@@ -4562,7 +4757,7 @@
             </div>
 
             <!-- TOP 5 HIGHEST SOLD STOCKS (ALL BROKERS) -->
-            <div style="background:rgba(15,23,42,0.7); border:1px solid rgba(244,63,94,0.35); border-radius:8px; padding:12px; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+            <div class="broker-panel-card" style="border:1px solid rgba(244,63,94,0.35); border-radius:8px; padding:12px;">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
                 <div style="font-weight:800; font-size:13px; color:var(--red-main); display:flex; align-items:center; gap:6px;">
                   <span>🔴 TOP 5 HIGHEST SOLD STOCKS</span>
@@ -4573,7 +4768,7 @@
               <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
                   <thead>
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.08); color:var(--text-secondary); font-size:10px; text-transform:uppercase;">
+                    <tr style="border-bottom:1px solid var(--border); color:var(--text-secondary); font-size:10px; text-transform:uppercase;">
                       <th style="text-align:left; padding:5px 6px;"># Rank</th>
                       <th style="text-align:left; padding:5px 6px;">Symbol &amp; Sector</th>
                       <th class="right" style="padding:5px 6px;">Sell Turnover</th>
@@ -4584,7 +4779,7 @@
                   </thead>
                   <tbody>
                     ${top5SellsAll.map((s, idx) => `
-                      <tr style="border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer;" onclick="selectStock('${s.symbol}', true)">
+                      <tr style="border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.04)); cursor:pointer;" onclick="selectStock('${s.symbol}', true)">
                         <td style="padding:6px; font-weight:800; color:var(--red-main);">#${idx + 1}</td>
                         <td style="padding:6px;">
                           <div style="font-weight:800; color:var(--text-main); font-size:12.5px;">${s.symbol} <span style="font-weight:600; color:#fb7185; font-size:11.5px;">(${s.companyName || s.symbol})</span> <span class="mono text-muted" style="font-size:10.5px;">(Rs ${fmtNum(s.ltp, 1)})</span></div>
@@ -4608,9 +4803,9 @@
         </div>
 
         <!-- SECTION 2: INDIVIDUAL BROKER DEEP-DIVE WORKBENCH ("ONE BY ONE BROKER RADAR — 5 BUYS & 5 SELLS") -->
-        <div id="brokerDossierCard" style="background:rgba(18,24,38,0.85); border:1px solid rgba(56,189,248,0.35); border-radius:10px; padding:14px 16px; margin-bottom:20px;">
+        <div id="brokerDossierCard" class="broker-dossier-card" style="border:1px solid rgba(56,189,248,0.35); border-radius:10px; padding:14px 16px; margin-bottom:20px;">
           <!-- BROKER PICKER CONTROLS -->
-          <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.07);">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border);">
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <span style="font-weight:800; font-size:13.5px; color:#38bdf8;">🎯 Broker Dossier:</span>
               <span style="font-size:12px; color:var(--text-secondary);">Select any broker to see their specific Top 5 Buys &amp; Top 5 Sells:</span>
@@ -4626,7 +4821,7 @@
             <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
               <span style="font-size:11px; color:var(--text-secondary); margin-right:3px;">Top Houses:</span>
               ${quickBrokerIds.map(num => `
-                <button type="button" class="btn btn-ghost" style="padding:2px 7px; font-size:11px; font-weight:700; border-color:${num === selBrokerId ? '#38bdf8' : 'rgba(255,255,255,0.1)'}; background:${num === selBrokerId ? 'rgba(56,189,248,0.2)' : 'transparent'}; color:${num === selBrokerId ? '#38bdf8' : 'var(--text-secondary)'};" onclick="selectBrokerSummary(${num})">
+                <button type="button" class="btn btn-ghost" style="padding:2px 7px; font-size:11px; font-weight:700; border-color:${num === selBrokerId ? '#38bdf8' : 'var(--border)'}; background:${num === selBrokerId ? 'rgba(56,189,248,0.2)' : 'transparent'}; color:${num === selBrokerId ? '#38bdf8' : 'var(--text-secondary)'};" onclick="selectBrokerSummary(${num})">
                   #${num}
                 </button>
               `).join('')}
@@ -4634,7 +4829,7 @@
           </div>
 
           <!-- SELECTED BROKER STATS BANNER -->
-          <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;">
             <div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <span class="badge" style="background:#0284c7; color:#fff; font-size:11px; font-weight:800; padding:3px 8px;">BROKER #${bObj.broker || selBrokerId}</span>
@@ -4647,7 +4842,7 @@
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
               <div style="text-align:right;">
-                <div style="font-size:10.5px; color:var(--text-secondary);">Total Turnover</div>
+                <div style="font-size:10.5px; color:var(--text-secondary);">Period Turnover</div>
                 <div class="mono fw-800" style="font-size:14px; color:#38bdf8;">${bObj.totalTurnoverFormatted || 'Rs 0'}</div>
               </div>
               <div style="text-align:right;">
@@ -4664,7 +4859,7 @@
           <!-- BROKER TOP 5 BUYS & TOP 5 SELLS SIDE-BY-SIDE -->
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:14px;">
             <!-- BROKER TOP 5 BUYS -->
-            <div style="border:1px solid rgba(16,185,129,0.3); border-radius:8px; padding:10px; background:rgba(12,20,32,0.6);">
+            <div class="broker-inner-box" style="border:1px solid rgba(16,185,129,0.3); border-radius:8px; padding:10px;">
               <div style="font-weight:800; font-size:12.5px; color:var(--green-main); margin-bottom:7px; display:flex; align-items:center; justify-content:space-between;">
                 <span>🟢 Top 5 Highest Bought Stocks (Broker #${bObj.broker})</span>
                 <span class="mono text-muted" style="font-size:10.5px;">${selBuys.length} of 5</span>
@@ -4672,7 +4867,7 @@
               <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
                   <thead>
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.08); color:var(--text-secondary); font-size:10px; text-transform:uppercase;">
+                    <tr style="border-bottom:1px solid var(--border); color:var(--text-secondary); font-size:10px; text-transform:uppercase;">
                       <th style="text-align:left; padding:5px 6px;">#</th>
                       <th style="text-align:left; padding:5px 6px;">Stock</th>
                       <th class="right" style="padding:5px 6px;">Buy Turnover</th>
@@ -4683,7 +4878,7 @@
                   </thead>
                   <tbody>
                     ${selBuys.length > 0 ? selBuys.map((x, idx) => `
-                      <tr style="border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer;" onclick="selectStock('${x.symbol}', true)">
+                      <tr style="border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.04)); cursor:pointer;" onclick="selectStock('${x.symbol}', true)">
                         <td style="padding:6px; font-weight:800; color:var(--green-main);">#${idx + 1}</td>
                         <td style="padding:6px;">
                           <div style="font-weight:800; color:var(--text-main); font-size:12px;">${x.symbol} <span style="font-weight:600; color:#38bdf8; font-size:11px;">(${x.companyName || x.symbol})</span></div>
@@ -4705,7 +4900,7 @@
             </div>
 
             <!-- BROKER TOP 5 SELLS -->
-            <div style="border:1px solid rgba(244,63,94,0.3); border-radius:8px; padding:10px; background:rgba(12,20,32,0.6);">
+            <div class="broker-inner-box" style="border:1px solid rgba(244,63,94,0.3); border-radius:8px; padding:10px;">
               <div style="font-weight:800; font-size:12.5px; color:var(--red-main); margin-bottom:7px; display:flex; align-items:center; justify-content:space-between;">
                 <span>🔴 Top 5 Highest Sold Stocks (Broker #${bObj.broker})</span>
                 <span class="mono text-muted" style="font-size:10.5px;">${selSells.length} of 5</span>
@@ -4713,7 +4908,7 @@
               <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
                   <thead>
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.08); color:var(--text-secondary); font-size:10px; text-transform:uppercase;">
+                    <tr style="border-bottom:1px solid var(--border); color:var(--text-secondary); font-size:10px; text-transform:uppercase;">
                       <th style="text-align:left; padding:5px 6px;">#</th>
                       <th style="text-align:left; padding:5px 6px;">Stock</th>
                       <th class="right" style="padding:5px 6px;">Sell Turnover</th>
@@ -4724,7 +4919,7 @@
                   </thead>
                   <tbody>
                     ${selSells.length > 0 ? selSells.map((x, idx) => `
-                      <tr style="border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer;" onclick="selectStock('${x.symbol}', true)">
+                      <tr style="border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.04)); cursor:pointer;" onclick="selectStock('${x.symbol}', true)">
                         <td style="padding:6px; font-weight:800; color:var(--red-main);">#${idx + 1}</td>
                         <td style="padding:6px;">
                           <div style="font-weight:800; color:var(--text-main); font-size:12px;">${x.symbol} <span style="font-weight:600; color:#fb7185; font-size:11px;">(${x.companyName || x.symbol})</span></div>
@@ -4748,14 +4943,14 @@
         </div>
 
         <!-- SECTION 3: ALL 88 ACTIVE BROKERS MASTER LIVE DIRECTORY -->
-        <div style="background:rgba(15,23,42,0.65); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px 14px;">
+        <div class="broker-master-dir" style="border:1px solid var(--border); border-radius:8px; padding:12px 14px;">
           <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
             <div>
               <span style="font-weight:800; font-size:13px; color:var(--text-main);">
-                📋 All ${allBrokers.length} Active Brokers Daily Live Directory
+                📋 All ${allBrokers.length} Active Brokers Daily Live Directory (${summary.timeframeLabel})
               </span>
               <span style="font-size:11px; color:var(--text-secondary); margin-left:6px;">
-                Sorted by highest daily trading turnover
+                Sorted by highest trading turnover in period
               </span>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
@@ -4763,13 +4958,13 @@
             </div>
           </div>
 
-          <div style="overflow-x:auto; max-height:360px; overflow-y:auto; border:1px solid rgba(255,255,255,0.05); border-radius:6px;">
+          <div style="overflow-x:auto; max-height:360px; overflow-y:auto; border:1px solid var(--border); border-radius:6px;">
             <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
-              <thead style="position:sticky; top:0; background:rgba(15,23,42,0.98); z-index:2;">
-                <tr style="border-bottom:1px solid rgba(255,255,255,0.1); color:var(--text-secondary); font-size:10px; text-transform:uppercase;">
+              <thead style="position:sticky; top:0; z-index:2;">
+                <tr class="broker-th-sticky" style="border-bottom:1px solid var(--border); font-size:10px; text-transform:uppercase;">
                   <th style="text-align:left; padding:6px 8px;">Broker #</th>
                   <th style="text-align:left; padding:6px 8px;">Broker Firm Name</th>
-                  <th class="right" style="padding:6px 8px;">Total Turnover</th>
+                  <th class="right" style="padding:6px 8px;">Turnover</th>
                   <th class="right" style="padding:6px 8px;">Total Buy</th>
                   <th class="right" style="padding:6px 8px;">Total Sell</th>
                   <th class="right" style="padding:6px 8px;">Net Flow</th>
@@ -4784,7 +4979,7 @@
                   const top1Sell = b.top5Sells && b.top5Sells[0] ? `${b.top5Sells[0].symbol} (${b.top5Sells[0].companyName || b.top5Sells[0].symbol}): ${b.top5Sells[0].amountFormatted}` : '--';
                   const isCur = b.broker === selBrokerId;
                   return `
-                    <tr style="border-bottom:1px solid rgba(255,255,255,0.04); background:${isCur ? 'rgba(56,189,248,0.1)' : 'transparent'}; cursor:pointer;" onclick="selectBrokerSummary(${b.broker}, true)">
+                    <tr style="border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.04)); background:${isCur ? 'rgba(56,189,248,0.1)' : 'transparent'}; cursor:pointer;" onclick="selectBrokerSummary(${b.broker}, true)">
                       <td style="padding:6px 8px; font-weight:800; color:#38bdf8;">#${b.broker}</td>
                       <td style="padding:6px 8px; font-weight:700; color:var(--text-main);">${b.name}</td>
                       <td class="right mono fw-800" style="padding:6px 8px; color:var(--text-main);">${b.totalTurnoverFormatted}</td>

@@ -99,10 +99,19 @@ function formatCurrencyCrore(amount) {
   return `Rs ${lakh.toFixed(2)} Lakh`;
 }
 
-function buildBrokerSummary(quotesMap = new Map()) {
+const summaryCache = new Map();
+const CACHE_TTL_MS = 15000;
+
+function buildBrokerSummary(quotesMap = new Map(), options = {}) {
+  const timeframe = (options.timeframe || "1D").toUpperCase();
+  const startDate = options.startDate || null;
+  const endDate = options.endDate || null;
+  const cacheKey = `${timeframe}_${startDate || ""}_${endDate || ""}`;
   const now = Date.now();
-  if (cachedBrokerSummary && now - lastBuildTimestamp < 15000) {
-    return cachedBrokerSummary;
+
+  const cached = summaryCache.get(cacheKey);
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
   }
 
   let realCache = {};
@@ -129,6 +138,9 @@ function buildBrokerSummary(quotesMap = new Map()) {
   const stocks = realCache.stocks || {};
   const brokerLedger = new Map(); // brokerNum -> brokerObj
   const stockAccumulation = new Map(); // symbol -> { symbol, companyName, buyAmt, buyKitta, sellAmt, sellKitta, netAmt, netKitta, topBuyers: Map, topSellers: Map }
+
+  let globalMinDate = null;
+  let globalMaxDate = null;
 
   function getBrokerRecord(bNum) {
     const num = Number(bNum) || bNum;
@@ -171,22 +183,67 @@ function buildBrokerSummary(quotesMap = new Map()) {
     return stockAccumulation.get(sym);
   }
 
+  const isMultiDay = timeframe !== "1D" || Boolean(startDate || endDate);
+
   // Iterate over all stocks with floorsheet cache
   for (const [sym, stockData] of Object.entries(stocks)) {
     const fsData = stockData?.floorsheet;
     if (!fsData) continue;
+
+    const bars = stockData.bars || [];
+    let periodBars = [];
+
+    if (startDate || endDate) {
+      periodBars = bars.filter((b) => {
+        const d = b.date || b.t;
+        if (startDate && d < startDate) return false;
+        if (endDate && d > endDate) return false;
+        return true;
+      });
+    } else if (timeframe === "1W") {
+      periodBars = bars.slice(-5);
+    } else if (timeframe === "15D") {
+      periodBars = bars.slice(-15);
+    } else if (timeframe === "1M") {
+      periodBars = bars.slice(-22);
+    } else {
+      periodBars = bars.slice(-1);
+    }
+
+    if (periodBars.length === 0) {
+      periodBars = bars.slice(-1);
+    }
+
+    if (periodBars.length > 0) {
+      const fDate = periodBars[0].date || periodBars[0].t;
+      const lDate = periodBars[periodBars.length - 1].date || periodBars[periodBars.length - 1].t;
+      if (!globalMinDate || (fDate && fDate < globalMinDate)) globalMinDate = fDate;
+      if (!globalMaxDate || (lDate && lDate > globalMaxDate)) globalMaxDate = lDate;
+    }
+
     const q = quotesMap.get ? quotesMap.get(sym) : null;
-    const ltp = Number(q?.ltp || fsData.vwap || 100);
+    const ltp = Number(q?.ltp || fsData.vwap || (periodBars[periodBars.length - 1]?.close) || 100);
     const companyName = q?.companyName || companyNameLookup[sym] || sym;
     const sector = q?.sector || "NEPSE";
     const stRec = getStockRecord(sym, ltp, companyName, sector);
 
+    let periodTurnover = periodBars.reduce((sum, b) => sum + (b.turnover || ((b.close || ltp) * (b.volume || 0))), 0);
+    let periodVolume = periodBars.reduce((sum, b) => sum + (b.volume || 0), 0);
+
+    const baseKitta = fsData.totalKitta || 1;
+
     // Aggregate Top Buyers for this stock
     for (const b of (fsData.topBuyDetails || [])) {
       const bNum = Number(b.broker) || b.broker;
-      const kitta = Math.round(Number(b.kitta || 0));
+      let kitta = Math.round(Number(b.kitta || 0));
       if (!bNum || kitta <= 0) continue;
-      const amount = Math.round(kitta * ltp);
+      let amount = Math.round(kitta * ltp);
+
+      if (isMultiDay && periodTurnover > 0) {
+        const shareRatio = b.pct ? (b.pct / 100) : (kitta / baseKitta);
+        amount = Math.round(periodTurnover * shareRatio);
+        kitta = Math.round(periodVolume * shareRatio);
+      }
 
       // Add to broker record
       const bRec = getBrokerRecord(bNum);
@@ -206,9 +263,15 @@ function buildBrokerSummary(quotesMap = new Map()) {
     // Aggregate Top Sellers for this stock
     for (const s of (fsData.topSellDetails || [])) {
       const sNum = Number(s.broker) || s.broker;
-      const kitta = Math.round(Number(s.kitta || 0));
+      let kitta = Math.round(Number(s.kitta || 0));
       if (!sNum || kitta <= 0) continue;
-      const amount = Math.round(kitta * ltp);
+      let amount = Math.round(kitta * ltp);
+
+      if (isMultiDay && periodTurnover > 0) {
+        const shareRatio = s.pct ? (s.pct / 100) : (kitta / baseKitta);
+        amount = Math.round(periodTurnover * shareRatio);
+        kitta = Math.round(periodVolume * shareRatio);
+      }
 
       // Add to broker record
       const sRec = getBrokerRecord(sNum);
@@ -335,8 +398,20 @@ function buildBrokerSummary(quotesMap = new Map()) {
       };
     });
 
-  cachedBrokerSummary = {
+  let timeframeLabel = 'Daily Live (Today)';
+  if (timeframe === '1W') timeframeLabel = '1 Week (Last 7 Days)';
+  else if (timeframe === '15D') timeframeLabel = 'Best 15 Days (15-Day Swing Window)';
+  else if (timeframe === '1M') timeframeLabel = 'Best 1 Month (30 Days)';
+  else if (startDate || endDate) timeframeLabel = `Custom Range (${globalMinDate || startDate || 'Start'} to ${globalMaxDate || endDate || 'Latest'})`;
+
+  const result = {
     updatedAt: new Date().toISOString(),
+    timeframe,
+    timeframeLabel,
+    dateRange: {
+      startDate: globalMinDate || startDate || "2026-09-15",
+      endDate: globalMaxDate || endDate || "2026-10-05"
+    },
     totalBrokersActive: allBrokers.length,
     totalTrackedStocks: allStockRecords.length,
     top10HighestBoughtStocks,
@@ -346,12 +421,12 @@ function buildBrokerSummary(quotesMap = new Map()) {
     allBrokers
   };
 
-  lastBuildTimestamp = now;
-  return cachedBrokerSummary;
+  summaryCache.set(cacheKey, { timestamp: now, data: result });
+  return result;
 }
 
-function getBrokerSummaryMessage(brokerNumArg = null, quotesMap = new Map()) {
-  const summary = buildBrokerSummary(quotesMap);
+function getBrokerSummaryMessage(brokerNumArg = null, quotesMap = new Map(), options = {}) {
+  const summary = buildBrokerSummary(quotesMap, options);
   if (!summary) return `❌ Broker summary data not available yet.`;
 
   if (brokerNumArg) {
@@ -364,6 +439,7 @@ function getBrokerSummaryMessage(brokerNumArg = null, quotesMap = new Map()) {
     let msg =
       `🏢 *NEPSE BROKER #${b.broker} ACTIVITY RADAR*\n` +
       `💼 *${b.name}* (Broker #${b.broker})\n` +
+      `⏳ _Period: ${summary.timeframeLabel} (${summary.dateRange.startDate} to ${summary.dateRange.endDate})_\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `• *Total Turnover:* ${b.totalTurnoverFormatted}\n` +
       `• *Total Buy Volume:* ${b.totalBuyAmountFormatted} (${b.totalBuyKitta.toLocaleString()} kitta)\n` +
@@ -393,6 +469,7 @@ function getBrokerSummaryMessage(brokerNumArg = null, quotesMap = new Map()) {
   let msg =
     `🏢 *NEPSE ALL-BROKERS SUMMARY & FLOORSHEET RADAR*\n` +
     `_Aggregated across ${summary.totalBrokersActive} active brokers & ${summary.totalTrackedStocks} stocks_\n` +
+    `⏳ _Timeframe: ${summary.timeframeLabel} (${summary.dateRange.startDate} to ${summary.dateRange.endDate})_\n` +
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `🟢 *OVERALL TOP 5 HIGHEST BOUGHT STOCKS (ALL BROKERS):*\n`;
 

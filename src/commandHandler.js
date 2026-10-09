@@ -340,13 +340,30 @@ async function handleMessage(rawText, senderId = "default") {
     lower === "broker summary" ||
     lower === "brokers summary"
   ) {
-    const arg = parts[1];
-    // If no argument or argument is a broker number (e.g. 58, 45, 28)
-    if (!arg || /^\d+$/.test(arg)) {
-      return brokerEngine.getBrokerSummaryMessage(arg ? Number(arg) : null, nepseProvider.quotes);
+    let brokerNum = null;
+    let timeframe = "1D";
+
+    for (const p of parts.slice(1)) {
+      if (/^\d+$/.test(p)) {
+        brokerNum = Number(p);
+      } else if (["1W", "7D", "WEEK"].includes(p.toUpperCase())) {
+        timeframe = "1W";
+      } else if (["15D", "15DAYS", "15-DAY"].includes(p.toUpperCase())) {
+        timeframe = "15D";
+      } else if (["1M", "30D", "MONTH"].includes(p.toUpperCase())) {
+        timeframe = "1M";
+      } else if (p.toUpperCase() === "1D" || p.toUpperCase() === "TODAY") {
+        timeframe = "1D";
+      }
     }
-    // If argument is a stock symbol (e.g. !broker NABIL or !floorsheet NABIL)
-    return await getSmartMoneyMessage(arg);
+
+    const firstArg = parts[1];
+    // If firstArg is not a number and not a timeframe keyword, check if it's a stock symbol (e.g. !broker NABIL)
+    if (firstArg && !/^\d+$/.test(firstArg) && !["1W", "7D", "WEEK", "15D", "15DAYS", "15-DAY", "1M", "30D", "MONTH", "1D", "TODAY"].includes(firstArg.toUpperCase())) {
+      return await getSmartMoneyMessage(firstArg);
+    }
+
+    return brokerEngine.getBrokerSummaryMessage(brokerNum, nepseProvider.quotes, { timeframe });
   }
 
   // 17. Head-to-Head Stock Comparison (!compare NABIL SCB)

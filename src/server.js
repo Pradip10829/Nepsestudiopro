@@ -543,10 +543,19 @@ const requestHandler = async (req, res) => {
   if (pathname === "/api/broker-summary" && req.method === "GET") {
     try {
       const brokerNum = parsedUrl.query.broker ? Number(parsedUrl.query.broker) : null;
-      const summary = brokerEngine.buildBrokerSummary(nepseProvider.quotes);
+      const timeframe = parsedUrl.query.timeframe || "1D";
+      const startDate = parsedUrl.query.startDate || null;
+      const endDate = parsedUrl.query.endDate || null;
+      const summary = brokerEngine.buildBrokerSummary(nepseProvider.quotes, { timeframe, startDate, endDate });
       if (brokerNum) {
         const single = summary.allBrokers.find((b) => b.broker === brokerNum);
-        return sendJson(res, 200, { ok: true, broker: single || null });
+        return sendJson(res, 200, {
+          ok: true,
+          broker: single || null,
+          timeframe: summary.timeframe,
+          timeframeLabel: summary.timeframeLabel,
+          dateRange: summary.dateRange
+        });
       }
       return sendJson(res, 200, { ok: true, summary });
     } catch (err) {
