@@ -4543,8 +4543,8 @@
                       <tr style="border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer;" onclick="selectStock('${s.symbol}', true)">
                         <td style="padding:6px; font-weight:800; color:var(--green-main);">#${idx + 1}</td>
                         <td style="padding:6px;">
-                          <div style="font-weight:800; color:var(--text-main);">${s.symbol} <span class="mono text-muted" style="font-size:10.5px;">(Rs ${fmtNum(s.ltp, 1)})</span></div>
-                          <div style="font-size:9.5px; color:var(--text-secondary);">${s.sector || 'NEPSE'} • ${s.topBrokers || ''}</div>
+                          <div style="font-weight:800; color:var(--text-main); font-size:12.5px;">${s.symbol} <span style="font-weight:600; color:#38bdf8; font-size:11.5px;">(${s.companyName || s.symbol})</span> <span class="mono text-muted" style="font-size:10.5px;">(Rs ${fmtNum(s.ltp, 1)})</span></div>
+                          <div style="font-size:9.5px; color:var(--text-secondary);">${s.sector || 'NEPSE'} • Top Buyers: ${s.topBrokers || ''}</div>
                         </td>
                         <td class="right mono fw-800 text-green" style="padding:6px;">${s.buyAmountFormatted}</td>
                         <td class="right mono text-muted" style="padding:6px;">${fmtInt(s.buyKitta)}</td>
@@ -4587,8 +4587,8 @@
                       <tr style="border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer;" onclick="selectStock('${s.symbol}', true)">
                         <td style="padding:6px; font-weight:800; color:var(--red-main);">#${idx + 1}</td>
                         <td style="padding:6px;">
-                          <div style="font-weight:800; color:var(--text-main);">${s.symbol} <span class="mono text-muted" style="font-size:10.5px;">(Rs ${fmtNum(s.ltp, 1)})</span></div>
-                          <div style="font-size:9.5px; color:var(--text-secondary);">${s.sector || 'NEPSE'} • ${s.topBrokers || ''}</div>
+                          <div style="font-weight:800; color:var(--text-main); font-size:12.5px;">${s.symbol} <span style="font-weight:600; color:#fb7185; font-size:11.5px;">(${s.companyName || s.symbol})</span> <span class="mono text-muted" style="font-size:10.5px;">(Rs ${fmtNum(s.ltp, 1)})</span></div>
+                          <div style="font-size:9.5px; color:var(--text-secondary);">${s.sector || 'NEPSE'} • Top Sellers: ${s.topBrokers || ''}</div>
                         </td>
                         <td class="right mono fw-800 text-red" style="padding:6px;">${s.sellAmountFormatted}</td>
                         <td class="right mono text-muted" style="padding:6px;">${fmtInt(s.sellKitta)}</td>
@@ -4686,7 +4686,7 @@
                       <tr style="border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer;" onclick="selectStock('${x.symbol}', true)">
                         <td style="padding:6px; font-weight:800; color:var(--green-main);">#${idx + 1}</td>
                         <td style="padding:6px;">
-                          <div style="font-weight:800; color:var(--text-main);">${x.symbol}</div>
+                          <div style="font-weight:800; color:var(--text-main); font-size:12px;">${x.symbol} <span style="font-weight:600; color:#38bdf8; font-size:11px;">(${x.companyName || x.symbol})</span></div>
                           <div style="font-size:9.5px; color:var(--text-secondary);">${x.sector || 'NEPSE'}</div>
                         </td>
                         <td class="right mono fw-800 text-green" style="padding:6px;">${x.amountFormatted}</td>
@@ -4727,7 +4727,7 @@
                       <tr style="border-bottom:1px solid rgba(255,255,255,0.04); cursor:pointer;" onclick="selectStock('${x.symbol}', true)">
                         <td style="padding:6px; font-weight:800; color:var(--red-main);">#${idx + 1}</td>
                         <td style="padding:6px;">
-                          <div style="font-weight:800; color:var(--text-main);">${x.symbol}</div>
+                          <div style="font-weight:800; color:var(--text-main); font-size:12px;">${x.symbol} <span style="font-weight:600; color:#fb7185; font-size:11px;">(${x.companyName || x.symbol})</span></div>
                           <div style="font-size:9.5px; color:var(--text-secondary);">${x.sector || 'NEPSE'}</div>
                         </td>
                         <td class="right mono fw-800 text-red" style="padding:6px;">${x.amountFormatted}</td>
@@ -4780,8 +4780,8 @@
               </thead>
               <tbody>
                 ${filteredBrokers.map(b => {
-                  const top1Buy = b.top5Buys && b.top5Buys[0] ? `${b.top5Buys[0].symbol} (${b.top5Buys[0].amountFormatted})` : '--';
-                  const top1Sell = b.top5Sells && b.top5Sells[0] ? `${b.top5Sells[0].symbol} (${b.top5Sells[0].amountFormatted})` : '--';
+                  const top1Buy = b.top5Buys && b.top5Buys[0] ? `${b.top5Buys[0].symbol} (${b.top5Buys[0].companyName || b.top5Buys[0].symbol}): ${b.top5Buys[0].amountFormatted}` : '--';
+                  const top1Sell = b.top5Sells && b.top5Sells[0] ? `${b.top5Sells[0].symbol} (${b.top5Sells[0].companyName || b.top5Sells[0].symbol}): ${b.top5Sells[0].amountFormatted}` : '--';
                   const isCur = b.broker === selBrokerId;
                   return `
                     <tr style="border-bottom:1px solid rgba(255,255,255,0.04); background:${isCur ? 'rgba(56,189,248,0.1)' : 'transparent'}; cursor:pointer;" onclick="selectBrokerSummary(${b.broker}, true)">

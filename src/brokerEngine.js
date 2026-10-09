@@ -112,9 +112,23 @@ function buildBrokerSummary(quotesMap = new Map()) {
     }
   } catch (_) {}
 
+  // Load official company names from live quotes cache
+  const companyNameLookup = {};
+  try {
+    const quotesCachePath = path.join(__dirname, "../data/live_quotes_cache.json");
+    if (fs.existsSync(quotesCachePath)) {
+      const qc = JSON.parse(fs.readFileSync(quotesCachePath, "utf8"));
+      if (Array.isArray(qc?.quotes)) {
+        qc.quotes.forEach((q) => {
+          if (q.symbol && q.companyName) companyNameLookup[q.symbol] = q.companyName;
+        });
+      }
+    }
+  } catch (_) {}
+
   const stocks = realCache.stocks || {};
   const brokerLedger = new Map(); // brokerNum -> brokerObj
-  const stockAccumulation = new Map(); // symbol -> { symbol, buyAmt, buyKitta, sellAmt, sellKitta, netAmt, netKitta, topBuyers: Map, topSellers: Map }
+  const stockAccumulation = new Map(); // symbol -> { symbol, companyName, buyAmt, buyKitta, sellAmt, sellKitta, netAmt, netKitta, topBuyers: Map, topSellers: Map }
 
   function getBrokerRecord(bNum) {
     const num = Number(bNum) || bNum;
@@ -138,9 +152,10 @@ function buildBrokerSummary(quotesMap = new Map()) {
 
   function getStockRecord(sym, ltp = 100, companyName = "", sector = "") {
     if (!stockAccumulation.has(sym)) {
+      const cName = companyName || companyNameLookup[sym] || sym;
       stockAccumulation.set(sym, {
         symbol: sym,
-        companyName: companyName || sym,
+        companyName: cName,
         sector: sector || "NEPSE",
         ltp,
         buyAmount: 0,
@@ -162,7 +177,7 @@ function buildBrokerSummary(quotesMap = new Map()) {
     if (!fsData) continue;
     const q = quotesMap.get ? quotesMap.get(sym) : null;
     const ltp = Number(q?.ltp || fsData.vwap || 100);
-    const companyName = q?.companyName || sym;
+    const companyName = q?.companyName || companyNameLookup[sym] || sym;
     const sector = q?.sector || "NEPSE";
     const stRec = getStockRecord(sym, ltp, companyName, sector);
 
@@ -177,7 +192,7 @@ function buildBrokerSummary(quotesMap = new Map()) {
       const bRec = getBrokerRecord(bNum);
       bRec.totalBuyKitta += kitta;
       bRec.totalBuyAmount += amount;
-      const prevB = bRec.boughtStocksMap.get(sym) || { symbol: sym, kitta: 0, amount: 0, ltp, sector };
+      const prevB = bRec.boughtStocksMap.get(sym) || { symbol: sym, companyName, kitta: 0, amount: 0, ltp, sector };
       prevB.kitta += kitta;
       prevB.amount += amount;
       bRec.boughtStocksMap.set(sym, prevB);
@@ -199,7 +214,7 @@ function buildBrokerSummary(quotesMap = new Map()) {
       const sRec = getBrokerRecord(sNum);
       sRec.totalSellKitta += kitta;
       sRec.totalSellAmount += amount;
-      const prevS = sRec.soldStocksMap.get(sym) || { symbol: sym, kitta: 0, amount: 0, ltp, sector };
+      const prevS = sRec.soldStocksMap.get(sym) || { symbol: sym, companyName, kitta: 0, amount: 0, ltp, sector };
       prevS.kitta += kitta;
       prevS.amount += amount;
       sRec.soldStocksMap.set(sym, prevS);
@@ -224,6 +239,7 @@ function buildBrokerSummary(quotesMap = new Map()) {
       .slice(0, 5)
       .map((item) => ({
         symbol: item.symbol,
+        companyName: item.companyName || companyNameLookup[item.symbol] || item.symbol,
         sector: item.sector,
         kitta: item.kitta,
         amount: item.amount,
@@ -236,6 +252,7 @@ function buildBrokerSummary(quotesMap = new Map()) {
       .slice(0, 5)
       .map((item) => ({
         symbol: item.symbol,
+        companyName: item.companyName || companyNameLookup[item.symbol] || item.symbol,
         sector: item.sector,
         kitta: item.kitta,
         amount: item.amount,
@@ -346,26 +363,26 @@ function getBrokerSummaryMessage(brokerNumArg = null, quotesMap = new Map()) {
 
     let msg =
       `🏢 *NEPSE BROKER #${b.broker} ACTIVITY RADAR*\n` +
-      `💼 _${b.name}_\n` +
+      `💼 *${b.name}* (Broker #${b.broker})\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `• *Total Turnover:* ${b.totalTurnoverFormatted}\n` +
       `• *Total Buy Volume:* ${b.totalBuyAmountFormatted} (${b.totalBuyKitta.toLocaleString()} kitta)\n` +
       `• *Total Sell Volume:* ${b.totalSellAmountFormatted} (${b.totalSellKitta.toLocaleString()} kitta)\n` +
       `• *Net Stance:* *${b.isNetBuyer ? "🟢 NET BUYER (+ " + b.netCashFlowFormatted + ")" : "🔴 NET SELLER (- " + b.netCashFlowFormatted + ")"}*\n\n` +
-      `🟢 *TOP 5 HIGHEST BOUGHT STOCKS (BY BROKER #${b.broker}):*\n`;
+      `🟢 *TOP 5 HIGHEST BOUGHT STOCKS (BY BROKER #${b.broker} — ${b.name}):*\n`;
 
     if (b.top5Buys.length === 0) msg += `  • No recorded buys\n`;
     else {
       b.top5Buys.forEach((x, i) => {
-        msg += `  ${i + 1}. *${x.symbol}*: ${x.amountFormatted} (${x.kitta.toLocaleString()} kitta | ${x.pctOfBrokerBuy}% of buy)\n`;
+        msg += `  ${i + 1}. *${x.symbol}* (${x.companyName || x.symbol}): Buy *${x.amountFormatted}* (${x.kitta.toLocaleString()} kitta | ${x.pctOfBrokerBuy}% of broker buy)\n`;
       });
     }
 
-    msg += `\n🔴 *TOP 5 HIGHEST SOLD STOCKS (BY BROKER #${b.broker}):*\n`;
+    msg += `\n🔴 *TOP 5 HIGHEST SOLD STOCKS (BY BROKER #${b.broker} — ${b.name}):*\n`;
     if (b.top5Sells.length === 0) msg += `  • No recorded sells\n`;
     else {
       b.top5Sells.forEach((x, i) => {
-        msg += `  ${i + 1}. *${x.symbol}*: ${x.amountFormatted} (${x.kitta.toLocaleString()} kitta | ${x.pctOfBrokerSell}% of sell)\n`;
+        msg += `  ${i + 1}. *${x.symbol}* (${x.companyName || x.symbol}): Sell *${x.amountFormatted}* (${x.kitta.toLocaleString()} kitta | ${x.pctOfBrokerSell}% of broker sell)\n`;
       });
     }
 
@@ -380,18 +397,18 @@ function getBrokerSummaryMessage(brokerNumArg = null, quotesMap = new Map()) {
     `🟢 *OVERALL TOP 5 HIGHEST BOUGHT STOCKS (ALL BROKERS):*\n`;
 
   summary.top5HighestBoughtStocks.forEach((s, i) => {
-    msg += `  ${i + 1}. *${s.symbol}* (LTP Rs ${s.ltp}): Buy *${s.buyAmountFormatted}* (${s.buyKitta.toLocaleString()} kitta)\n     ↳ _Top Buyers: ${s.topBrokers}_\n`;
+    msg += `  ${i + 1}. *${s.symbol}* (${s.companyName || s.symbol}) — LTP Rs ${s.ltp}\n     ↳ Buy: *${s.buyAmountFormatted}* (${s.buyKitta.toLocaleString()} kitta) | Net: *${s.isNetAccumulated ? "+" : "-"}${s.netAmountFormatted}*\n     ↳ _Top Buyers: ${s.topBrokers}_\n`;
   });
 
   msg += `\n🔴 *OVERALL TOP 5 HIGHEST SOLD STOCKS (ALL BROKERS):*\n`;
   summary.top5HighestSoldStocks.forEach((s, i) => {
-    msg += `  ${i + 1}. *${s.symbol}* (LTP Rs ${s.ltp}): Sell *${s.sellAmountFormatted}* (${s.sellKitta.toLocaleString()} kitta)\n     ↳ _Top Sellers: ${s.topBrokers}_\n`;
+    msg += `  ${i + 1}. *${s.symbol}* (${s.companyName || s.symbol}) — LTP Rs ${s.ltp}\n     ↳ Sell: *${s.sellAmountFormatted}* (${s.sellKitta.toLocaleString()} kitta) | Net: *${s.isNetDumped ? "-" : "+"}${s.netAmountFormatted}*\n     ↳ _Top Sellers: ${s.topBrokers}_\n`;
   });
 
   msg += `\n🏆 *TOP 5 BROKERS BY MARKET TURNOVER:*\n`;
   summary.allBrokers.slice(0, 5).forEach((b, i) => {
     const stance = b.isNetBuyer ? `🟢 Net +${b.netCashFlowFormatted}` : `🔴 Net -${b.netCashFlowFormatted}`;
-    msg += `  ${i + 1}. *Broker #${b.broker}* (${b.name.split(" ")[0]}): ${b.totalTurnoverFormatted} | ${stance}\n`;
+    msg += `  ${i + 1}. *Broker #${b.broker}: ${b.name}*\n     ↳ Turnover: *${b.totalTurnoverFormatted}* | ${stance}\n`;
   });
 
   msg += `\n💡 _Send *!broker 58* (or any broker number like *!broker 45*) to see any broker's individual Top 5 Buys & Top 5 Sells._`;
