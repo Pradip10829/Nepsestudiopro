@@ -4,6 +4,7 @@ const nepseProvider = require("./nepseProvider");
 const { analyzeStock } = require("./signalEngine");
 const { calculateBuy, calculateSell } = require("./sebonCalculator");
 const predictionJournal = require("./predictionJournal");
+const brokerEngine = require("./brokerEngine");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
@@ -320,13 +321,32 @@ async function handleMessage(rawText, senderId = "default") {
     return await getFundamentalMessage(sym);
   }
 
-  // 16. Smart Money & Broker Floorsheet Flow (!smartmoney NABIL or !floorsheet NABIL)
-  if (["!smartmoney", "/smartmoney", "smartmoney", "!floorsheet", "floorsheet", "!broker", "!sm"].includes(cmd)) {
-    const sym = parts[1];
-    if (!sym) {
-      return `⚠️ Please specify a stock symbol.\nExample: *!smartmoney NABIL* or *!floorsheet HDL*`;
+  // 16. Dedicated All-Brokers Summary & Floorsheet Radar (!broker, !brokers, !broker 58, !floorsheet NABIL)
+  if (
+    [
+      "!broker",
+      "/broker",
+      "broker",
+      "!brokers",
+      "/brokers",
+      "brokers",
+      "!floorsheet",
+      "/floorsheet",
+      "floorsheet",
+      "!smartmoney",
+      "/smartmoney",
+      "smartmoney"
+    ].includes(cmd) ||
+    lower === "broker summary" ||
+    lower === "brokers summary"
+  ) {
+    const arg = parts[1];
+    // If no argument or argument is a broker number (e.g. 58, 45, 28)
+    if (!arg || /^\d+$/.test(arg)) {
+      return brokerEngine.getBrokerSummaryMessage(arg ? Number(arg) : null, nepseProvider.quotes);
     }
-    return await getSmartMoneyMessage(sym);
+    // If argument is a stock symbol (e.g. !broker NABIL or !floorsheet NABIL)
+    return await getSmartMoneyMessage(arg);
   }
 
   // 17. Head-to-Head Stock Comparison (!compare NABIL SCB)

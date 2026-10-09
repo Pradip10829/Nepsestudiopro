@@ -8,6 +8,7 @@ const { analyzeStock, normalizeBarsForBookClose } = require("./signalEngine");
 const { handleMessage, getAppState, saveState } = require("./commandHandler");
 const whatsappClient = require("./whatsappClient");
 const predictionJournal = require("./predictionJournal");
+const brokerEngine = require("./brokerEngine");
 
 const PORT = process.env.PORT || 4050;
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -533,6 +534,21 @@ const requestHandler = async (req, res) => {
       const targetDate = parsedUrl.query.date || null;
       const audit = predictionJournal.auditSession(targetDate, nepseProvider);
       return sendJson(res, 200, { ok: true, audit });
+    } catch (err) {
+      return sendJson(res, 500, { ok: false, error: err.message });
+    }
+  }
+
+  // 2d. NEPSE All-Brokers Summary & Floorsheet Radar API
+  if (pathname === "/api/broker-summary" && req.method === "GET") {
+    try {
+      const brokerNum = parsedUrl.query.broker ? Number(parsedUrl.query.broker) : null;
+      const summary = brokerEngine.buildBrokerSummary(nepseProvider.quotes);
+      if (brokerNum) {
+        const single = summary.allBrokers.find((b) => b.broker === brokerNum);
+        return sendJson(res, 200, { ok: true, broker: single || null });
+      }
+      return sendJson(res, 200, { ok: true, summary });
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: err.message });
     }
