@@ -1160,7 +1160,15 @@ class NepseProvider {
             if (Number(nepseRow.noOfGainers) >= 0) this.marketIndex.noOfGainers = Number(nepseRow.noOfGainers);
             if (Number(nepseRow.noOfLosers) >= 0) this.marketIndex.noOfLosers = Number(nepseRow.noOfLosers);
             if (Number(nepseRow.noOfUnchanged) >= 0) this.marketIndex.noOfUnchanged = Number(nepseRow.noOfUnchanged);
-            if (nepseRow.asOfDateString) this.marketIndex.asOfDateString = nepseRow.asOfDateString;
+            if (nepseRow.asOfDateString) {
+              // Once trading has concluded (past 3:00 PM), ensure the timestamp reflects the final official EOD close
+              const isPastMarket = !isOpen || hour >= 15;
+              if (isPastMarket && nepseRow.asOfDateString.includes("02:59")) {
+                this.marketIndex.asOfDateString = nepseRow.asOfDateString.replace(/02:59:\d{2}\s*PM/i, "03:00:00 PM");
+              } else {
+                this.marketIndex.asOfDateString = nepseRow.asOfDateString;
+              }
+            }
           }
           if (sensRow && Number(sensRow.indexValue) > 100) {
             this.marketIndex.sensitiveIndex = Number(sensRow.indexValue);
