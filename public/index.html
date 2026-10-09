@@ -7107,15 +7107,16 @@
       const canvas = document.getElementById('priceChart');
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      if (rect && rect.width > 240 && rect.height > 150) {
-        const targetW = Math.round(rect.width);
-        const targetH = Math.round(rect.height);
-        if (Math.abs(canvas.width - targetW) > 2) canvas.width = targetW;
-        if (Math.abs(canvas.height - targetH) > 2) canvas.height = targetH;
-      }
+      const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 0;
+      const targetW = (rect && rect.width > 240) ? Math.round(rect.width) : (parentWidth > 240 ? Math.round(parentWidth - 16) : 960);
+      const targetH = (rect && rect.height > 150) ? Math.round(rect.height) : 315;
+
+      if (Math.abs(canvas.width - targetW) > 2) canvas.width = targetW;
+      if (Math.abs(canvas.height - targetH) > 2) canvas.height = targetH;
+
       const ctx = canvas.getContext('2d');
-      const W = canvas.width;
-      const H = canvas.height;
+      const W = canvas.width || 960;
+      const H = canvas.height || 315;
       ctx.clearRect(0, 0, W, H);
 
       const isWeeklyMode = chartTimeframeDays === '1W';
@@ -7125,12 +7126,16 @@
         : isWeeklyMode
           ? aggregateDailyToWeeklyBars(bars || [], sig)
           : (bars || []);
-      const recent = isIntraday1D
+      let recent = isIntraday1D
         ? allBars
         : isWeeklyMode
           ? allBars.slice(-28)
           : allBars.slice(-Number(chartTimeframeDays || 60));
-      if (recent.length === 0) return;
+      if (!recent || recent.length === 0) {
+        // If bars array was empty, generate client fallback candles from today's quote so chart never stays blank!
+        recent = buildClientIntradayBars(bars || [], sig);
+      }
+      if (!recent || recent.length === 0) return;
 
       const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
       const showRsiPane = Boolean(chartOverlays.rsi);
