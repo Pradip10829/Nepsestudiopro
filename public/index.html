@@ -5707,16 +5707,10 @@
             <div class="mono text-green" style="font-size:16px; font-weight:800; margin:2px 0;">Rs ${fmtNum(exactDipPrice, 1)} (-${fmtNum(exactDipPct, 1)}%)</div>
             <div style="font-size:11px; color:var(--text-secondary);"><strong>Normal Small Dip:</strong> Safe floor above Stop-Loss. Add ${bkpKitta} kitta if price dips here.</div>
           </div>
-          <div style="background:var(--bg-elevated); border:1px solid ${isSellNow ? 'var(--red-border)' : isBuyNow || isBuyDip ? 'var(--green-border)' : 'var(--amber-border)'}; border-left:4px solid ${isSellNow ? 'var(--red-main)' : isBuyNow || isBuyDip ? 'var(--green-main)' : 'var(--amber-main)'}; border-radius:10px; padding:10px 12px;">
-            <div style="font-size:10px; font-weight:800; color:${isSellNow ? 'var(--red-dark)' : isBuyNow || isBuyDip ? 'var(--green-dark)' : 'var(--amber-dark)'}; text-transform:uppercase;">
-              ${isSellNow ? '🛑 3. BUY VERDICT: DO NOT BUY' : isBuyNow ? '🟢 3. MAIN BUY PRICE' : isBuyDip ? '🟢 3. BUY ON DIP PRICE' : '🟡 3. WAIT (NO BUY NOW)'}
-            </div>
-            <div class="mono ${isSellNow ? 'text-red' : isBuyNow || isBuyDip ? 'text-green' : 'text-amber'}" style="font-size:16px; font-weight:800; margin:2px 0;">
-              ${isSellNow ? '🛑 DO NOT ENTER' : `Rs ${fmtNum(exactBuyPrice, 1)}`}
-            </div>
-            <div style="font-size:11px; color:var(--text-secondary);">
-              <strong>Action Today:</strong> ${isSellNow ? `Stock is in SELL mode (P/E ${fmtNum(f.pe, 1)}x). Only look to buy if price falls to Rs ${fmtNum(exactBuyPrice, 1)}.` : isBuyNow ? `Safe to buy ${recKitta} kitta now at market.` : isBuyDip ? `Place Limit Buy at Rs ${fmtNum(exactBuyPrice, 1)} (${recKitta} kitta).` : `Wait patiently. Do not chase.`}
-            </div>
+          <div style="background:var(--bg-elevated); border:1px solid ${s.isImmediateSell ? 'var(--red-border)' : 'var(--green-border)'}; border-left:4px solid ${s.isImmediateSell ? 'var(--red-main)' : 'var(--green-main)'}; border-radius:10px; padding:10px 12px;">
+            <div style="font-size:10px; font-weight:800; color:${s.isImmediateSell ? 'var(--red-dark)' : 'var(--green-dark)'}; text-transform:uppercase;">3. MAIN BUY PRICE</div>
+            <div class="mono ${s.isImmediateSell ? 'text-red' : 'text-green'}" style="font-size:16px; font-weight:800; margin:2px 0;">Rs ${fmtNum(exactBuyPrice, 1)}</div>
+            <div style="font-size:11px; color:var(--text-secondary);"><strong>Where to Buy:</strong> ${s.isImmediateBuy ? `Buy ${recKitta} kitta now at market.` : s.isImmediateSell ? 'Overheated — wait for pullback.' : `Place Limit Buy here (${recKitta} kitta).`}</div>
           </div>
           <div style="background:var(--bg-elevated); border:1px solid var(--green-border); border-left:4px solid var(--green-main); border-radius:10px; padding:10px 12px;">
             <div style="font-size:10px; font-weight:800; color:var(--green-dark); text-transform:uppercase;">4. SELL TARGETS (HIGHEST)</div>
@@ -5735,15 +5729,15 @@
 
       document.getElementById('buyPanelBody').innerHTML = `
         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:10px;">
-          <div style="background:var(--bg-elevated); border:1.5px solid ${isSellNow ? 'var(--red-border-strong)' : isBuyNow || isBuyDip ? 'var(--green-border-strong)' : 'var(--amber-border)'}; border-radius:10px; padding:10px;">
-            <div style="font-size:10px; font-weight:800; color:${isSellNow ? 'var(--red-dark)' : isBuyNow || isBuyDip ? 'var(--green-dark)' : 'var(--amber-dark)'}; text-transform:uppercase;">
-              ${isSellNow ? '🛑 STEP 1: BUY DECISION' : 'STEP 1: FIRST BUY PRICE'}
+          <div style="background:var(--bg-elevated); border:1.5px solid ${s.isImmediateSell ? 'var(--red-border-strong)' : 'var(--green-border-strong)'}; border-radius:10px; padding:10px;">
+            <div style="font-size:10px; font-weight:800; color:${s.isImmediateSell ? 'var(--red-dark)' : 'var(--green-dark)'}; text-transform:uppercase;">
+              STEP 1: FIRST BUY PRICE
             </div>
-            <div class="mono ${isSellNow ? 'text-red' : isBuyNow || isBuyDip ? 'text-green' : 'text-amber'}" style="font-size:18px; font-weight:800; margin:4px 0;">
-              ${isSellNow ? '🛑 NO BUY TODAY' : `Rs ${fmtNum(exactBuyPrice, 1)}`}
+            <div class="mono ${s.isImmediateSell ? 'text-red' : 'text-green'}" style="font-size:19px; font-weight:800; margin:4px 0;">
+              Rs ${fmtNum(exactBuyPrice, 1)}
             </div>
             <div style="font-size:11.5px; color:var(--text-secondary);">
-              ${isSellNow ? `⚠️ Stock is in SELL mode. Do NOT place buy orders today.` : isBuyNow ? `Buy ${recKitta} kitta now (~Rs ${fmtInt(Math.round(recKitta * exactBuyPrice))})` : `Put Limit Buy for ${recKitta} kitta in TMS`}
+              ${s.isImmediateBuy ? `Buy ${recKitta} kitta now (~Rs ${fmtInt(Math.round(recKitta * exactBuyPrice))})` : s.isImmediateSell ? 'Do NOT buy today — wait for dip' : `Put Limit Buy for ${recKitta} kitta in TMS`}
             </div>
           </div>
           <div style="background:var(--bg-elevated); border:1px solid var(--border-strong); border-radius:10px; padding:10px;">
@@ -6180,17 +6174,6 @@
           volume: b.v
         }));
         drawWhiteChart(mappedBars, s);
-      } else {
-        // Immediate fallback so canvas is NEVER blank while network fetch is in progress!
-        const fallbackBar = {
-          date: new Date().toISOString().slice(0, 10),
-          open: Number(s.open || s.prevClose || s.ltp || 100),
-          high: Number(s.high || s.ltp || 100),
-          low: Number(s.low || s.ltp || 100),
-          close: Number(s.ltp || 100),
-          volume: Number(s.volume || 1000)
-        };
-        drawWhiteChart([fallbackBar], s);
       }
 
       if (!skipChartFetch) {
@@ -7118,16 +7101,15 @@
       const canvas = document.getElementById('priceChart');
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 0;
-      const targetW = (rect && rect.width > 240) ? Math.round(rect.width) : (parentWidth > 240 ? Math.round(parentWidth - 16) : 960);
-      const targetH = (rect && rect.height > 150) ? Math.round(rect.height) : 315;
-
-      if (Math.abs(canvas.width - targetW) > 2) canvas.width = targetW;
-      if (Math.abs(canvas.height - targetH) > 2) canvas.height = targetH;
-
+      if (rect && rect.width > 240 && rect.height > 150) {
+        const targetW = Math.round(rect.width);
+        const targetH = Math.round(rect.height);
+        if (Math.abs(canvas.width - targetW) > 2) canvas.width = targetW;
+        if (Math.abs(canvas.height - targetH) > 2) canvas.height = targetH;
+      }
       const ctx = canvas.getContext('2d');
-      const W = canvas.width || 960;
-      const H = canvas.height || 315;
+      const W = canvas.width;
+      const H = canvas.height;
       ctx.clearRect(0, 0, W, H);
 
       const isWeeklyMode = chartTimeframeDays === '1W';
@@ -7137,16 +7119,12 @@
         : isWeeklyMode
           ? aggregateDailyToWeeklyBars(bars || [], sig)
           : (bars || []);
-      let recent = isIntraday1D
+      const recent = isIntraday1D
         ? allBars
         : isWeeklyMode
           ? allBars.slice(-28)
           : allBars.slice(-Number(chartTimeframeDays || 60));
-      if (!recent || recent.length === 0) {
-        // If bars array was empty, generate client fallback candles from today's quote so chart never stays blank!
-        recent = buildClientIntradayBars(bars || [], sig);
-      }
-      if (!recent || recent.length === 0) return;
+      if (recent.length === 0) return;
 
       const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
       const showRsiPane = Boolean(chartOverlays.rsi);
@@ -7308,43 +7286,31 @@
         ? Number(wkPlan.nextWeekTarget2)
         : Number(exExec.exactSellTarget2 || sig?.executionMatrix?.exits?.exit2?.price || (target1Price * 1.05));
 
-      const lows = recent.map(b => Number(b.low ?? b.l ?? b.close ?? b.c ?? 0)).filter(v => v > 0);
-      const highs = recent.map(b => Number(b.high ?? b.h ?? b.close ?? b.c ?? 0)).filter(v => v > 0);
-      let minP = lows.length > 0 ? Math.min(...lows) : (ltp > 0 ? ltp * 0.95 : 100);
-      let maxP = highs.length > 0 ? Math.max(...highs) : (ltp > 0 ? ltp * 1.05 : 110);
+      let minP = Math.min(...recent.map(b => b.low));
+      let maxP = Math.max(...recent.map(b => b.high));
       if (isIntraday1D && prevCloseRef > 0) {
         minP = Math.min(minP, prevCloseRef * 0.996);
         maxP = Math.max(maxP, prevCloseRef * 1.004);
       }
       if (chartOverlays.bb && !isIntraday1D) {
-        const bbLoValid = bbLoSlice.filter(v => Number(v) > 0);
-        const bbUpValid = bbUpSlice.filter(v => Number(v) > 0);
-        if (bbLoValid.length > 0) minP = Math.min(minP, ...bbLoValid);
-        if (bbUpValid.length > 0) maxP = Math.max(maxP, ...bbUpValid);
+        minP = Math.min(minP, ...bbLoSlice.filter(v => v > 0));
+        maxP = Math.max(maxP, ...bbUpSlice.filter(v => v > 0));
       }
       if (chartOverlays.supertrend && !isIntraday1D) {
-        const stValid = stValSlice.filter(v => Number(v) > 0);
-        if (stValid.length > 0) {
-          minP = Math.min(minP, ...stValid);
-          maxP = Math.max(maxP, ...stValid);
-        }
+        minP = Math.min(minP, ...stValSlice.filter(v => v > 0));
+        maxP = Math.max(maxP, ...stValSlice.filter(v => v > 0));
       }
       if (chartOverlays.ladder && !isIntraday1D) {
-        if (stopPrice > 0 && stopPrice < ltp * 2) minP = Math.min(minP, stopPrice * 0.988);
-        if (supportPrice > 0 && supportPrice < ltp * 2) minP = Math.min(supportPrice * 0.99, minP);
-        if (target1Price > 0 && target1Price < ltp * 2) maxP = Math.max(maxP, target1Price * 1.012);
-        if (target2Price > 0 && target2Price <= ltp * 1.35) {
+        if (stopPrice > 0) minP = Math.min(minP, stopPrice * 0.988);
+        if (supportPrice > 0) minP = Math.min(supportPrice * 0.99, minP);
+        if (target1Price > 0) maxP = Math.max(maxP, target1Price * 1.012);
+        if (target2Price > 0 && target2Price <= ltp * 1.24) {
           maxP = Math.max(maxP, target2Price * 1.01);
         }
       }
 
-      if (isNaN(minP) || !isFinite(minP) || minP <= 0) minP = ltp > 0 ? ltp * 0.95 : 100;
-      if (isNaN(maxP) || !isFinite(maxP) || maxP <= minP) maxP = minP * 1.08;
       const range = Math.max(0.5, maxP - minP);
-      const yOf = p => {
-        const val = Number(p || minP);
-        return padT + pricePlotH - ((val - minP) / range) * pricePlotH;
-      };
+      const yOf = p => padT + pricePlotH - ((p - minP) / range) * pricePlotH;
 
       ctx.fillStyle = isDark ? '#080b11' : '#ffffff';
       ctx.fillRect(0, 0, W, H);
@@ -7567,11 +7533,7 @@
       // 3. Candlesticks (with Today's Live Candle highlight on the final bar)
       recent.forEach((b, idx) => {
         const x = padL + idx * stepX + stepX / 2;
-        const bClose = Number(b.close ?? b.c ?? b.open ?? b.o ?? ltp);
-        const bOpen = Number(b.open ?? b.o ?? bClose);
-        const bHigh = Math.max(Number(b.high ?? b.h ?? Math.max(bOpen, bClose)), bOpen, bClose);
-        const bLow = Math.min(Number(b.low ?? b.l ?? Math.min(bOpen, bClose)), bOpen, bClose);
-        const isBull = bClose >= bOpen;
+        const isBull = b.close >= b.open;
         const isLatestBar = idx === recent.length - 1;
         const color = isBull ? '#10b981' : '#f43f5e';
 
@@ -7585,12 +7547,12 @@
         ctx.strokeStyle = color;
         ctx.lineWidth = (idx === hoverIdx || isLatestBar) ? 2 : 1.25;
         ctx.beginPath();
-        ctx.moveTo(x, yOf(bHigh));
-        ctx.lineTo(x, yOf(bLow));
+        ctx.moveTo(x, yOf(b.high));
+        ctx.lineTo(x, yOf(b.low));
         ctx.stroke();
 
-        const yOpen = yOf(bOpen);
-        const yClose = yOf(bClose);
+        const yOpen = yOf(b.open);
+        const yClose = yOf(b.close);
         const top = Math.min(yOpen, yClose);
         const h = Math.max(2, Math.abs(yClose - yOpen));
         ctx.fillStyle = isBull ? (isDark ? '#10b981' : '#a7f3d0') : (isDark ? '#f43f5e' : '#fecdd3');
