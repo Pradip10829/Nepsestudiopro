@@ -284,9 +284,29 @@ function answerPredictionQuery(queryText, nepseProvider, analyzedSignals = []) {
     const q = nepseProvider.quotes.get(sym);
     const ltp = q ? Number(q.ltp) : 0;
     const sig = (analyzedSignals || []).find((s) => s.symbol === sym);
-    const isBuy = sig?.isImmediateBuy || sig?.swingTrade?.isSwingTrade;
+    const isBuy = Boolean(sig?.isImmediateBuy || sig?.swingTrade?.isSwingTrade);
+    const isSell = Boolean(sig?.isImmediateSell || sig?.signalType === "SELL" || !isBuy);
 
     if (sig) {
+      if (isSell) {
+        const sellUrgency = sig.sellUrgencyScore || 85;
+        const whySell = sig.immediateSellReason || (Array.isArray(sig.whySellBullets) && sig.whySellBullets.length > 0 ? sig.whySellBullets.join("; ") : "Bearish trend structure / Momentum rejection");
+        const s1 = sig.tradePlan?.support1 || (ltp * 0.94).toFixed(1);
+        const s2 = sig.tradePlan?.support2 || (ltp * 0.88).toFixed(1);
+        return (
+          `🤖 *NEPSE AI TRUTH AUDITOR — ${sym}*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `• *Symbol:* ${sym} (${sig.sector})\n` +
+          `• *Live LTP:* *NPR ${ltp}* (${sig.percentageChange >= 0 ? "+" : ""}${sig.percentageChange}%)\n` +
+          `• *Status:* *🔴 🚨 IMMEDIATE SELL / AVOID FRESH BUY* (Urgency: *${sellUrgency}/100*)\n` +
+          `• *Buy Entry:* ❌ *NO BUY ENTRY (DO NOT BUY — SELL SIGNAL ACTIVE)*\n` +
+          `• *Exit Action (Sell Price):* *Exit at LTP NPR ${ltp}*\n` +
+          `• *Downside Drop Risk:* S1 @ NPR ${s1} ➔ S2 @ NPR ${s2}\n` +
+          `• *Why Sell:* ${whySell}\n` +
+          `• *Verdict:* 🛑 **100% LEAVE IT!** Zero fresh buy allowed. If holding existing shares, exit at LTP before downside breakdown.`
+        );
+      }
+
       const sw = sig.swingTrade || {};
       const ex = sig.exactExecution || {};
       return (
@@ -294,16 +314,12 @@ function answerPredictionQuery(queryText, nepseProvider, analyzedSignals = []) {
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
         `• *Symbol:* ${sym} (${sig.sector})\n` +
         `• *Live LTP:* *NPR ${ltp}* (${sig.percentageChange >= 0 ? "+" : ""}${sig.percentageChange}%)\n` +
-        `• *Status:* *${isBuy ? "🟢 " + (sig.buyCategory || "IMMEDIATE BUY / SWING CANDIDATE") : "🔴 " + (sig.sellCategory || "AVOID / WAIT")}*\n` +
+        `• *Status:* *🟢 ${sig.buyCategory || "IMMEDIATE BUY / SWING CANDIDATE"}*\n` +
         `• *Entry Zone:* Rs ${sw.entry || ex.exactBuyPrice || ltp}\n` +
         `• *Target 1:* Rs ${sw.target1 || ex.exactSellTarget1}\n` +
         `• *Target 2:* Rs ${sw.target2 || ex.exactSellTarget2}\n` +
         `• *Stop Loss:* Rs ${sw.stopLoss || ex.exactStopLossPrice}\n` +
-        `• *Verdict:* ${
-          isBuy
-            ? `✅ Buy inside Entry Zone (Hold for Target 1/2). Risk/Reward is favorable.`
-            : `🛑 100% LEAVE IT! Not meeting 10-Factor Confluence.`
-        }`
+        `• *Verdict:* ✅ Buy inside Entry Zone (Hold for Target 1/2). Risk/Reward is favorable.`
       );
     }
   }
