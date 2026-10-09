@@ -536,11 +536,14 @@ async function getPrecisionBuyPlanMessage(symInput, capitalNPR = 100000) {
     `🧠 *PLAIN-ENGLISH ADVISOR VERDICT:*\n${sa.simpleReason}\n` +
     `💎 _Long-Term Thesis: ${lt.longTermThesis} (SIP Zone: ${lt.sipZone} → 1Yr Target: NPR ${lt.target1Yr})_\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    (a.isImmediateSell || a.sellCategory?.includes("SELL")
+      ? `🚨 *CRITICAL WARNING: STOCK IS IN SELL MODE*\n⚠️ _Do NOT buy today. The price zones below are only technical support levels for exit reference, NOT an active buy signal._\n━━━━━━━━━━━━━━━━━━━━━━\n`
+      : "") +
     `🪜 *3-TRANCHE PYRAMID ACCUMULATION PLAN (Eliminates T+2 Trap)*\n` +
     `• *Tranche 1 (${t1.weight} = ${t1.kitta} kitta) — ${t1.label}:*\n` +
-    `  👉 Buy Zone: *${t1.zone}*\n` +
+    `  👉 ${a.isImmediateSell || a.sellCategory?.includes("SELL") ? "Support Level (NO BUY)" : "Buy Zone"}: *${t1.zone}*\n` +
     `• *Tranche 2 (${t2.weight} = ${t2.kitta} kitta) — ${t2.label}:*\n` +
-    `  👉 Buy Zone: *${t2.zone}*\n` +
+    `  👉 ${a.isImmediateSell || a.sellCategory?.includes("SELL") ? "Deep Support" : "Buy Zone"}: *${t2.zone}*\n` +
     `• *Tranche 3 (${t3.weight} = ${t3.kitta} kitta) — ${t3.label}:*\n` +
     `  👉 Trigger: *${t3.zone}*\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +

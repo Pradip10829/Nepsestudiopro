@@ -5707,10 +5707,16 @@
             <div class="mono text-green" style="font-size:16px; font-weight:800; margin:2px 0;">Rs ${fmtNum(exactDipPrice, 1)} (-${fmtNum(exactDipPct, 1)}%)</div>
             <div style="font-size:11px; color:var(--text-secondary);"><strong>Normal Small Dip:</strong> Safe floor above Stop-Loss. Add ${bkpKitta} kitta if price dips here.</div>
           </div>
-          <div style="background:var(--bg-elevated); border:1px solid ${s.isImmediateSell ? 'var(--red-border)' : 'var(--green-border)'}; border-left:4px solid ${s.isImmediateSell ? 'var(--red-main)' : 'var(--green-main)'}; border-radius:10px; padding:10px 12px;">
-            <div style="font-size:10px; font-weight:800; color:${s.isImmediateSell ? 'var(--red-dark)' : 'var(--green-dark)'}; text-transform:uppercase;">3. MAIN BUY PRICE</div>
-            <div class="mono ${s.isImmediateSell ? 'text-red' : 'text-green'}" style="font-size:16px; font-weight:800; margin:2px 0;">Rs ${fmtNum(exactBuyPrice, 1)}</div>
-            <div style="font-size:11px; color:var(--text-secondary);"><strong>Where to Buy:</strong> ${s.isImmediateBuy ? `Buy ${recKitta} kitta now at market.` : s.isImmediateSell ? 'Overheated — wait for pullback.' : `Place Limit Buy here (${recKitta} kitta).`}</div>
+          <div style="background:var(--bg-elevated); border:1px solid ${isSellNow ? 'var(--red-border)' : isBuyNow || isBuyDip ? 'var(--green-border)' : 'var(--amber-border)'}; border-left:4px solid ${isSellNow ? 'var(--red-main)' : isBuyNow || isBuyDip ? 'var(--green-main)' : 'var(--amber-main)'}; border-radius:10px; padding:10px 12px;">
+            <div style="font-size:10px; font-weight:800; color:${isSellNow ? 'var(--red-dark)' : isBuyNow || isBuyDip ? 'var(--green-dark)' : 'var(--amber-dark)'}; text-transform:uppercase;">
+              ${isSellNow ? '🛑 3. BUY VERDICT: DO NOT BUY' : isBuyNow ? '🟢 3. MAIN BUY PRICE' : isBuyDip ? '🟢 3. BUY ON DIP PRICE' : '🟡 3. WAIT (NO BUY NOW)'}
+            </div>
+            <div class="mono ${isSellNow ? 'text-red' : isBuyNow || isBuyDip ? 'text-green' : 'text-amber'}" style="font-size:16px; font-weight:800; margin:2px 0;">
+              ${isSellNow ? '🛑 DO NOT ENTER' : `Rs ${fmtNum(exactBuyPrice, 1)}`}
+            </div>
+            <div style="font-size:11px; color:var(--text-secondary);">
+              <strong>Action Today:</strong> ${isSellNow ? `Stock is in SELL mode (P/E ${fmtNum(f.pe, 1)}x). Only look to buy if price falls to Rs ${fmtNum(exactBuyPrice, 1)}.` : isBuyNow ? `Safe to buy ${recKitta} kitta now at market.` : isBuyDip ? `Place Limit Buy at Rs ${fmtNum(exactBuyPrice, 1)} (${recKitta} kitta).` : `Wait patiently. Do not chase.`}
+            </div>
           </div>
           <div style="background:var(--bg-elevated); border:1px solid var(--green-border); border-left:4px solid var(--green-main); border-radius:10px; padding:10px 12px;">
             <div style="font-size:10px; font-weight:800; color:var(--green-dark); text-transform:uppercase;">4. SELL TARGETS (HIGHEST)</div>
@@ -5729,15 +5735,15 @@
 
       document.getElementById('buyPanelBody').innerHTML = `
         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:10px;">
-          <div style="background:var(--bg-elevated); border:1.5px solid ${s.isImmediateSell ? 'var(--red-border-strong)' : 'var(--green-border-strong)'}; border-radius:10px; padding:10px;">
-            <div style="font-size:10px; font-weight:800; color:${s.isImmediateSell ? 'var(--red-dark)' : 'var(--green-dark)'}; text-transform:uppercase;">
-              STEP 1: FIRST BUY PRICE
+          <div style="background:var(--bg-elevated); border:1.5px solid ${isSellNow ? 'var(--red-border-strong)' : isBuyNow || isBuyDip ? 'var(--green-border-strong)' : 'var(--amber-border)'}; border-radius:10px; padding:10px;">
+            <div style="font-size:10px; font-weight:800; color:${isSellNow ? 'var(--red-dark)' : isBuyNow || isBuyDip ? 'var(--green-dark)' : 'var(--amber-dark)'}; text-transform:uppercase;">
+              ${isSellNow ? '🛑 STEP 1: BUY DECISION' : 'STEP 1: FIRST BUY PRICE'}
             </div>
-            <div class="mono ${s.isImmediateSell ? 'text-red' : 'text-green'}" style="font-size:19px; font-weight:800; margin:4px 0;">
-              Rs ${fmtNum(exactBuyPrice, 1)}
+            <div class="mono ${isSellNow ? 'text-red' : isBuyNow || isBuyDip ? 'text-green' : 'text-amber'}" style="font-size:18px; font-weight:800; margin:4px 0;">
+              ${isSellNow ? '🛑 NO BUY TODAY' : `Rs ${fmtNum(exactBuyPrice, 1)}`}
             </div>
             <div style="font-size:11.5px; color:var(--text-secondary);">
-              ${s.isImmediateBuy ? `Buy ${recKitta} kitta now (~Rs ${fmtInt(Math.round(recKitta * exactBuyPrice))})` : s.isImmediateSell ? 'Do NOT buy today — wait for dip' : `Put Limit Buy for ${recKitta} kitta in TMS`}
+              ${isSellNow ? `⚠️ Stock is in SELL mode. Do NOT place buy orders today.` : isBuyNow ? `Buy ${recKitta} kitta now (~Rs ${fmtInt(Math.round(recKitta * exactBuyPrice))})` : `Put Limit Buy for ${recKitta} kitta in TMS`}
             </div>
           </div>
           <div style="background:var(--bg-elevated); border:1px solid var(--border-strong); border-radius:10px; padding:10px;">

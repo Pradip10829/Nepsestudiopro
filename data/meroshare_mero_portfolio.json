@@ -12,7 +12,7 @@
     "autoSyncEnabled": true,
     "syncIntervalMinutes": 1,
     "linkedAt": "2026-10-04T04:40:36.376Z",
-    "lastSyncedAt": "2026-10-05T15:00:00.000Z",
+    "lastSyncedAt": "2026-10-07T08:30:05.109Z",
     "syncStatus": "LIVE_CDSC_AUTHENTICATED",
     "cdscTotalValueLtp": 724463.7,
     "cdscTotalValuePrevClose": 730157.9,
@@ -1644,11 +1644,11 @@
       "freezeBalance": 0,
       "dematPending": 0,
       "wacc": 291.2189,
-      "waccSource": "CDSC Official WACC Report",
+      "waccSource": "Custom WACC Override",
       "waccCalculatedQty": 50,
       "waccTotalCost": 14560.944,
       "waccLastModified": "2024-07-23 17:20:02",
-      "userEditedWacc": false,
+      "userEditedWacc": true,
       "purchaseLots": [],
       "userLtQty": 4,
       "userStQty": 0,
@@ -1658,7 +1658,7 @@
       "cdscValuePrevClose": 1575.6,
       "holdPeriod": "long",
       "source": "LIVE_CDSC_MEROSHARE",
-      "updatedAt": "2026-10-04T06:17:22.235Z",
+      "updatedAt": "2026-10-07T08:30:05.109Z",
       "prevCloseValue": 1575.6,
       "currentValue": 1592
     },
@@ -1692,8 +1692,5 @@
       "prevCloseValue": 2152,
       "currentValue": 2152
     }
-  },
-  "exportedAt": "05/10/2026 15:00:00",
-  "totalValueAsOfPreviousClosingPrice": 730157.9,
-  "totalValueAsOfLastTransactionPrice": 724463.7
+  }
 }
